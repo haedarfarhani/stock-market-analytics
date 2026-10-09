@@ -41,7 +41,7 @@
     <!-- Main column -->
     <div class="lg:ps-64">
       <header class="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
-        <div class="mx-auto flex max-w-10xl items-center gap-2 px-4 py-3">
+        <div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3">
           <button class="rounded-lg border border-line p-2 text-ink lg:hidden" @click="sidebarOpen = true"
             aria-label="باز کردن منو">☰</button>
           <div class="min-w-0">
@@ -64,7 +64,7 @@
         </div>
       </header>
 
-      <main class="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-5">
+      <main class="mx-auto max-w-10xl px-2 py-3 sm:px-4 sm:py-5">
         <div v-if="quota.limited"
           class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-xs leading-6 text-rose-800 dark:text-rose-200"
           role="alert">
