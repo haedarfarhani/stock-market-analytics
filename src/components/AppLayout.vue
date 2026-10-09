@@ -1,39 +1,31 @@
 <template>
   <div class="min-h-screen">
     <!-- Mobile sidebar overlay -->
-    <div
-      v-if="sidebarOpen"
-      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
-      @click="sidebarOpen = false"
-      aria-hidden="true"
-    />
+    <div v-if="sidebarOpen" class="fixed inset-0 z-30 bg-black/50 lg:hidden" @click="sidebarOpen = false"
+      aria-hidden="true" />
 
     <!-- Sidebar -->
     <aside
       class="fixed inset-y-0 right-0 z-40 flex w-64 flex-col border-l border-line bg-surface transition-transform duration-200"
-      :class="sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'"
-      aria-label="ناوبری اصلی"
-    >
+      :class="sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'" aria-label="ناوبری اصلی">
       <div class="flex items-center gap-3 border-b border-line bg-gradient-to-l from-brand/10 to-transparent px-4 py-4">
-        <div class="brand-gradient grid h-10 w-10 place-items-center rounded-xl text-lg font-black text-white shadow-lg shadow-brand/25" aria-hidden="true">◈</div>
+        <div
+          class="brand-gradient grid h-10 w-10 place-items-center rounded-xl text-lg font-black text-white shadow-lg shadow-brand/25"
+          aria-hidden="true">◈</div>
         <div class="min-w-0">
           <p class="truncate text-sm font-black text-ink">تحلیل بازار سرمایه</p>
           <p class="text-[11px] text-muted">بورس تهران • TSETMC</p>
         </div>
-        <button class="ms-auto rounded-lg p-1.5 text-muted hover:bg-secondary lg:hidden" @click="sidebarOpen = false" aria-label="بستن منو">✕</button>
+        <button class="ms-auto rounded-lg p-1.5 text-muted hover:bg-secondary lg:hidden" @click="sidebarOpen = false"
+          aria-label="بستن منو">✕</button>
       </div>
 
       <nav class="flex-1 space-y-1 overflow-y-auto p-3">
-        <RouterLink
-          v-for="item in nav"
-          :key="item.to"
-          :to="item.to"
-          @click="sidebarOpen = false"
+        <RouterLink v-for="item in nav" :key="item.to" :to="item.to" @click="sidebarOpen = false"
           class="flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-semibold transition"
           :class="$route.path === item.to || ($route.path.startsWith(item.to + '/') && item.to !== '/')
             ? 'border-brand/20 bg-brand/10 text-brand'
-            : 'text-muted hover:border-line hover:bg-secondary hover:text-ink'"
-        >
+            : 'text-muted hover:border-line hover:bg-secondary hover:text-ink'">
           <span class="text-base" aria-hidden="true">{{ item.icon }}</span>
           {{ item.label }}
         </RouterLink>
@@ -49,8 +41,9 @@
     <!-- Main column -->
     <div class="lg:ps-64">
       <header class="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
-        <div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3">
-          <button class="rounded-lg border border-line p-2 text-ink lg:hidden" @click="sidebarOpen = true" aria-label="باز کردن منو">☰</button>
+        <div class="mx-auto flex max-w-10xl items-center gap-2 px-4 py-3">
+          <button class="rounded-lg border border-line p-2 text-ink lg:hidden" @click="sidebarOpen = true"
+            aria-label="باز کردن منو">☰</button>
           <div class="min-w-0">
             <h1 class="truncate text-sm font-black text-ink sm:text-base">{{ pageTitle }}</h1>
             <p class="truncate text-[11px] text-muted">{{ pageSubtitle }}</p>
@@ -60,11 +53,8 @@
               <SearchInput v-model="market.query" placeholder="جستجوی نماد یا شرکت… (مثلاً فولاد)" />
             </div>
             <ThemeToggle />
-            <button
-              @click="market.load(true)"
-              :disabled="market.status === 'loading'"
-              class="rounded-xl bg-brand-solid px-3 py-2 text-xs font-bold text-white shadow-sm shadow-brand/25 transition hover:bg-brand-strong disabled:opacity-50"
-            >
+            <button @click="market.load(true)" :disabled="market.status === 'loading'"
+              class="rounded-xl bg-brand-solid px-3 py-2 text-xs font-bold text-white shadow-sm shadow-brand/25 transition hover:bg-brand-strong disabled:opacity-50">
               {{ market.status === 'loading' ? 'در حال به‌روزرسانی…' : '⟳ به‌روزرسانی' }}
             </button>
           </div>
@@ -75,19 +65,22 @@
       </header>
 
       <main class="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-5">
-        <div
-          v-if="quota.limited"
+        <div v-if="quota.limited"
           class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-xs leading-6 text-rose-800 dark:text-rose-200"
-          role="alert"
-        >
+          role="alert">
           <span aria-hidden="true">⛔</span>
-          <p class="min-w-0 flex-1"><strong>محدودیت API:</strong> {{ quota.message }} <span v-if="quota.updatedAtFa" class="tnum">({{ quota.updatedAtFa }})</span></p>
-          <button @click="retryQuota" class="shrink-0 rounded-lg bg-brand-solid px-3 py-1 text-[11px] font-bold text-white hover:bg-brand-strong">
+          <p class="min-w-0 flex-1"><strong>محدودیت API:</strong> {{ quota.message }} <span v-if="quota.updatedAtFa"
+              class="tnum">({{ quota.updatedAtFa }})</span></p>
+          <button @click="retryQuota"
+            class="shrink-0 rounded-lg bg-brand-solid px-3 py-1 text-[11px] font-bold text-white hover:bg-brand-strong">
             تلاش مجدد
           </button>
-          <button @click="quota.dismiss()" class="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold" aria-label="بستن">✕</button>
+          <button @click="quota.dismiss()" class="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold"
+            aria-label="بستن">✕</button>
         </div>
-        <div v-if="market.error" class="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs leading-6 text-amber-800 dark:text-amber-200" role="status">
+        <div v-if="market.error"
+          class="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs leading-6 text-amber-800 dark:text-amber-200"
+          role="status">
           <span aria-hidden="true">⚠️</span>
           <p>{{ market.error }}</p>
         </div>
@@ -96,7 +89,9 @@
 
       <footer class="mx-auto max-w-7xl px-2 pb-4 text-[11px] leading-6 text-muted sm:px-4 sm:pb-8">
         <div class="rounded-2xl border border-line bg-surface px-4 py-3">
-          داده‌ها از سرویس BrsApi (TSETMC / IME / CODAL) تامین می‌شود. در صورت نبود کلید API، داده نمایشی (mock) با برچسب مشخص نمایش داده می‌شود و نباید مبنای تصمیم معاملاتی قرار گیرد. جزئیات اتصال: <span class="font-mono" dir="ltr">API_INTEGRATION.md</span>
+          داده‌ها از سرویس BrsApi (TSETMC / IME / CODAL) تامین می‌شود. در صورت نبود کلید API، داده نمایشی (mock) با
+          برچسب مشخص نمایش داده می‌شود و نباید مبنای تصمیم معاملاتی قرار گیرد. جزئیات اتصال: <span class="font-mono"
+            dir="ltr">API_INTEGRATION.md</span>
         </div>
       </footer>
     </div>
