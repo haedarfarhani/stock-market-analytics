@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center gap-1.5 overflow-x-auto px-1 py-1.5" role="toolbar" aria-label="ابزارهای نمودار">
+  <div class="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-1 py-1.5" role="toolbar" aria-label="ابزارهای نمودار">
     <!-- chart type -->
     <div class="tb-group" role="group" aria-label="نوع نمودار">
       <button
@@ -173,5 +173,12 @@ const ranges = [
   width: 1px;
   flex-shrink: 0;
   background: var(--line);
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 </style>

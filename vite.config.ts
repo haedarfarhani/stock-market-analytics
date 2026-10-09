@@ -14,7 +14,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true,
     proxy: {
       // Backend proxy to protect BrsApi credentials.
       // Frontend calls /api/brsapi/* -> proxied to https://Api.BrsApi.ir
