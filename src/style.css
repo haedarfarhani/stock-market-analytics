@@ -1,0 +1,210 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Local Vazirmatn (src/assets/fonts, all 9 weights) ---------- */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_thin.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_extralight.ttf") format("truetype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_semibold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_extrabold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./assets/fonts/vazirmatn_black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Pink theme tokens (single source of truth) ---------- */
+:root {
+  color-scheme: light;
+  --page: #fff7fb;
+  --surface: #ffffff;
+  --secondary: #fff0f6;
+  --brand: #db2777;
+  --brand-solid: #db2777;
+  --brand-strong: #be185d;
+  --accent: #ec4899;
+  --soft: #fbcfe8;
+  --ink: #3b172b;
+  --muted: #87566f;
+  --line: #f3d4e3;
+  --up: #15803d;
+  --down: #dc2626;
+}
+
+.dark {
+  color-scheme: dark;
+  --page: #160d14;
+  --surface: #21121d;
+  --secondary: #301827;
+  --brand: #f472b6;
+  --brand-solid: #9d174d;
+  --brand-strong: #be185d;
+  --accent: #fb8bc4;
+  --soft: #9d174d;
+  --ink: #fff1f7;
+  --muted: #d0a9bc;
+  --line: #48263b;
+  --up: #34d399;
+  --down: #fb7185;
+}
+
+@theme inline {
+  --font-sans: "Vazirmatn", "Segoe UI", Tahoma, ui-sans-serif, system-ui, sans-serif;
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-secondary: var(--secondary);
+  --color-brand: var(--brand);
+  --color-brand-solid: var(--brand-solid);
+  --color-brand-strong: var(--brand-strong);
+  --color-accent: var(--accent);
+  --color-soft: var(--soft);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-up: var(--up);
+  --color-down: var(--down);
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  @apply bg-page text-ink antialiased;
+}
+
+/* smooth theme switching (no flicker; pre-paint script sets the class) */
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+/* subtle pink brand gradient (logo, highlights) */
+.brand-gradient {
+  background: linear-gradient(135deg, var(--brand-solid) 0%, var(--accent) 100%);
+}
+
+/* soft pink card glow on hover */
+.card-hover {
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, background-color 0.3s ease;
+}
+.card-hover:hover {
+  border-color: var(--soft);
+  box-shadow: 0 8px 28px -12px rgb(219 39 119 / 0.28);
+}
+.dark .card-hover:hover {
+  box-shadow: 0 8px 28px -10px rgb(244 114 182 / 0.22);
+}
+
+/* tabular numbers for financial tables, dates & times — always Vazirmatn */
+.tnum {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  letter-spacing: 0;
+}
+
+/* thin scrollbars, pink-tinted */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(219 39 119 / 0.32) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(219 39 119 / 0.32);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* skeleton shimmer, pink-tinted */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(219 39 119 / 0.08) 25%,
+    rgb(219 39 119 / 0.2) 37%,
+    rgb(219 39 119 / 0.08) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+/* lightweight-charts tooltip font */
+.lw-tooltip {
+  font-family: var(--font-sans);
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+/* Persian date/time inputs inherit theme */
+input,
+select,
+textarea {
+  color-scheme: inherit;
+}

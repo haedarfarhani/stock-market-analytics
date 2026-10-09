@@ -1,0 +1,22 @@
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+
+const routes: RouteRecordRaw[] = [
+  { path: '/', name: 'dashboard', component: () => import('@/pages/Dashboard.vue'), meta: { title: 'داشبورد بازار', subtitle: 'نمای کلی بورس تهران، طلا، ارز و کالا' } },
+  { path: '/stocks', name: 'stocks', component: () => import('@/pages/Stocks.vue'), meta: { title: 'سهام', subtitle: 'فهرست قابل جستجو و فیلتر نمادها' } },
+  { path: '/stocks/:symbol', name: 'stock-details', component: () => import('@/pages/StockDetails.vue'), meta: { title: 'جزئیات نماد', subtitle: 'نمودار، آمار معاملات و سهامداران' } },
+  { path: '/indices', name: 'indices', component: () => import('@/pages/Indices.vue'), meta: { title: 'شاخص‌های بازار', subtitle: 'شاخص کل، هم‌وزن، فرابورس و…' } },
+  { path: '/funds', name: 'funds', component: () => import('@/pages/EtfFunds.vue'), meta: { title: 'صندوق‌ها و ETF', subtitle: 'قیمت، NAV و حباب صندوق‌ها' } },
+  { path: '/options', name: 'options', component: () => import('@/pages/Options.vue'), meta: { title: 'بازار آپشن', subtitle: 'قراردادهای اختیار بورس و کالا' } },
+  { path: '/history', name: 'history', component: () => import('@/pages/History.vue'), meta: { title: 'سوابق معاملات', subtitle: 'داده تاریخی و کندل‌های روزانه' } },
+  { path: '/codal', name: 'codal', component: () => import('@/pages/Codal.vue'), meta: { title: 'اطلاعیه‌های کدال', subtitle: 'افشاها، صورت‌های مالی و مجامع' } },
+  { path: '/commodities', name: 'commodities', component: () => import('@/pages/Commodities.vue'), meta: { title: 'طلا، ارز و کالا', subtitle: 'سکه، دلار، رمزارز و کامودیتی' } },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFound.vue'), meta: { title: 'صفحه یافت نشد', subtitle: '' } },
+]
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  scrollBehavior() {
+    return { top: 0 }
+  },
+})
