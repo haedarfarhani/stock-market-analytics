@@ -52,14 +52,13 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # NOTE: intentionally `npm install`, not `npm ci`. The lockfile is
-        # generated on Windows, where npm prunes other platforms' optional
-        # dependencies — including Vite 8 / rolldown's Linux native binding
-        # (@rolldown/binding-linux-x64-gnu). `npm ci` installs the lock
-        # verbatim and the build then crashes with "Cannot find native
-        # binding" (npm/cli#4828). `npm install` re-resolves optionals for
-        # the runner's platform and installs the correct binding.
-        run: npm install --no-audit --no-fund
+        # NOTE: keep `npm ci` (reproducible). The needed rolldown native
+        # bindings are pinned explicitly in package.json optionalDependencies
+        # because npm on Windows prunes other platforms' optional deps from
+        # the lockfile — without them Linux CI installed no binding and the
+        # build crashed with "Cannot find native binding" (npm/cli#4828).
+        # If rolldown is ever upgraded, sync those pinned versions with it.
+        run: npm ci
 
       - name: Typecheck and build
         run: npm run build
