@@ -389,7 +389,78 @@ defineExpose({
   timeToX: (time: WorkspaceCandle['time']): number | null => {
     if (!chart) return null
     try {
-      return chart.timeScale().timeToCoordinate(time as Time)
+      // 1. Try native timeToCoordinate
+      let coord = chart.timeScale().timeToCoordinate(time as Time)
+      if (typeof coord === 'number' && Number.isFinite(coord)) return coord
+
+      // 2. If time is a string "YYYY-MM-DD", try as BusinessDay object
+      if (typeof time === 'string') {
+        const parts = time.split('-').map(Number)
+        if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+          coord = chart.timeScale().timeToCoordinate({ year: parts[0], month: parts[1], day: parts[2] })
+          if (typeof coord === 'number' && Number.isFinite(coord)) return coord
+        }
+      }
+
+      // 3. Fallback to index in candles -> logicalToCoordinate
+      const idx = props.candles.findIndex((c) => String(c.time) === String(time))
+      if (idx >= 0) {
+        const lCoord = chart.timeScale().logicalToCoordinate(idx as never)
+        if (typeof lCoord === 'number' && Number.isFinite(lCoord)) return lCoord
+      }
+
+      // 3b. Proximity fallback: find nearest candle by date if exact match fails
+      if (props.candles.length > 0) {
+        const strTime = String(time)
+        const targetMs = Date.parse(strTime.includes('T') ? strTime : `${strTime}T00:00:00Z`)
+        if (Number.isFinite(targetMs)) {
+          let closestIdx = -1
+          let minDiff = Infinity
+          for (let i = 0; i < props.candles.length; i++) {
+            const cStr = String(props.candles[i]!.time)
+            const cMs = Date.parse(cStr.includes('T') ? cStr : `${cStr}T00:00:00Z`)
+            if (Number.isFinite(cMs)) {
+              const diff = Math.abs(cMs - targetMs)
+              if (diff < minDiff) {
+                minDiff = diff
+                closestIdx = i
+              }
+            }
+          }
+          if (closestIdx >= 0 && minDiff <= 7 * 86400000) {
+            const lCoord = chart.timeScale().logicalToCoordinate(closestIdx as never)
+            if (typeof lCoord === 'number' && Number.isFinite(lCoord)) return lCoord
+          }
+        }
+      }
+
+      // 4. Fallback for future/past projection relative to candles
+      if (props.candles.length > 0) {
+        const last = props.candles[props.candles.length - 1]!
+        const first = props.candles[0]!
+        if (typeof time === 'number' && typeof last.time === 'number') {
+          const diffBars = Math.round((time - last.time) / 120)
+          const lCoord = chart.timeScale().logicalToCoordinate((props.candles.length - 1 + diffBars) as never)
+          if (typeof lCoord === 'number' && Number.isFinite(lCoord)) return lCoord
+        } else {
+          const tDate = Date.parse(`${String(time)}T00:00:00Z`)
+          const lDate = Date.parse(`${String(last.time)}T00:00:00Z`)
+          const fDate = Date.parse(`${String(first.time)}T00:00:00Z`)
+          if (Number.isFinite(tDate)) {
+            if (Number.isFinite(lDate) && tDate >= lDate) {
+              const diffDays = Math.round((tDate - lDate) / 86400000)
+              const lCoord = chart.timeScale().logicalToCoordinate((props.candles.length - 1 + diffDays) as never)
+              if (typeof lCoord === 'number' && Number.isFinite(lCoord)) return lCoord
+            } else if (Number.isFinite(fDate) && tDate <= fDate) {
+              const diffDays = Math.round((tDate - fDate) / 86400000)
+              const lCoord = chart.timeScale().logicalToCoordinate((0 + diffDays) as never)
+              if (typeof lCoord === 'number' && Number.isFinite(lCoord)) return lCoord
+            }
+          }
+        }
+      }
+
+      return null
     } catch {
       return null
     }
@@ -397,7 +468,47 @@ defineExpose({
   xToTime: (x: number): WorkspaceCandle['time'] | null => {
     if (!chart) return null
     try {
-      return (chart.timeScale().coordinateToTime(x) as unknown as WorkspaceCandle['time']) ?? null
+      // 1. Try native coordinateToTime
+      const raw = chart.timeScale().coordinateToTime(x)
+      if (raw !== null && raw !== undefined) {
+        if (typeof raw === 'number' || typeof raw === 'string') return raw
+        if (typeof raw === 'object' && 'year' in raw && 'month' in raw && 'day' in raw) {
+          const b = raw as { year: number; month: number; day: number }
+          return `${b.year}-${String(b.month).padStart(2, '0')}-${String(b.day).padStart(2, '0')}`
+        }
+      }
+
+      // 2. Fallback to coordinateToLogical
+      const logical = chart.timeScale().coordinateToLogical(x)
+      if (logical !== null && Number.isFinite(logical) && props.candles.length > 0) {
+        const intIdx = Math.round(logical)
+        if (intIdx >= 0 && intIdx < props.candles.length) {
+          return props.candles[intIdx]!.time
+        }
+        // Future projection (clicking beyond the latest candle to the right)
+        if (intIdx >= props.candles.length) {
+          const last = props.candles[props.candles.length - 1]!
+          const diff = intIdx - (props.candles.length - 1)
+          if (typeof last.time === 'number') {
+            return last.time + diff * 120
+          }
+          const d = new Date(`${String(last.time)}T00:00:00Z`)
+          d.setUTCDate(d.getUTCDate() + diff)
+          return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+        }
+        // Past projection (clicking before the first candle to the left)
+        if (intIdx < 0) {
+          const first = props.candles[0]!
+          if (typeof first.time === 'number') {
+            return first.time + intIdx * 120
+          }
+          const d = new Date(`${String(first.time)}T00:00:00Z`)
+          d.setUTCDate(d.getUTCDate() + intIdx)
+          return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+        }
+      }
+
+      return null
     } catch {
       return null
     }
@@ -413,8 +524,12 @@ defineExpose({
   yToPrice: (y: number): number | null => {
     if (!main) return null
     try {
-      const v = main.coordinateToPrice(y)
-      return typeof v === 'number' ? v : null
+      let v = main.coordinateToPrice(y)
+      if (typeof v === 'number' && Number.isFinite(v)) return v
+      const h = el.value?.clientHeight ?? 400
+      const clampedY = Math.max(10, Math.min(h - 30, y))
+      v = main.coordinateToPrice(clampedY)
+      return typeof v === 'number' && Number.isFinite(v) ? v : null
     } catch {
       return null
     }

@@ -1,13 +1,13 @@
 <template>
   <div class="min-h-screen">
-    <!-- Mobile sidebar overlay -->
-    <div v-if="sidebarOpen" class="fixed inset-0 z-30 bg-black/50 lg:hidden" @click="sidebarOpen = false"
+    <!-- Mobile and analysis sidebar overlay -->
+    <div v-if="sidebarOpen" class="fixed inset-0 z-50 bg-black/50" :class="{ 'lg:hidden': !isAnalysisPage }" @click="sidebarOpen = false"
       aria-hidden="true" />
 
     <!-- Sidebar -->
     <aside
-      class="fixed inset-y-0 right-0 z-40 flex w-64 flex-col border-l border-line bg-surface transition-transform duration-200"
-      :class="sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'" aria-label="ناوبری اصلی">
+      class="fixed inset-y-0 right-0 z-50 flex w-64 flex-col border-l border-line bg-surface transition-transform duration-200"
+      :class="sidebarOpen ? 'translate-x-0' : (isAnalysisPage ? 'translate-x-full' : 'translate-x-full lg:translate-x-0')" aria-label="ناوبری اصلی">
       <div class="flex items-center gap-3 border-b border-line bg-gradient-to-l from-brand/10 to-transparent px-4 py-4">
         <div
           class="brand-gradient grid h-10 w-10 place-items-center rounded-xl text-lg font-black text-white shadow-lg shadow-brand/25"
@@ -16,7 +16,7 @@
           <p class="truncate text-sm font-black text-ink">تحلیل بازار سرمایه</p>
           <p class="text-[11px] text-muted">بورس تهران • TSETMC</p>
         </div>
-        <button class="ms-auto rounded-lg p-1.5 text-muted hover:bg-secondary lg:hidden" @click="sidebarOpen = false"
+        <button class="ms-auto rounded-lg p-1.5 text-muted hover:bg-secondary" :class="{ 'lg:hidden': !isAnalysisPage }" @click="sidebarOpen = false"
           aria-label="بستن منو">✕</button>
       </div>
 
@@ -39,8 +39,8 @@
     </aside>
 
     <!-- Main column -->
-    <div class="lg:ps-64">
-      <header class="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
+    <div :class="isAnalysisPage ? 'h-screen flex flex-col overflow-hidden w-full' : 'lg:ps-64'">
+      <header v-if="!isAnalysisPage" class="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur">
         <div class="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3">
           <button class="rounded-lg border border-line p-2 text-ink lg:hidden" @click="sidebarOpen = true"
             aria-label="باز کردن منو">☰</button>
@@ -64,8 +64,8 @@
         </div>
       </header>
 
-      <main class="mx-auto max-w-10xl px-2 py-3 sm:px-4 sm:py-5">
-        <div v-if="quota.limited"
+      <main :class="isAnalysisPage ? 'flex-1 h-full min-h-0 w-full p-0 overflow-hidden' : 'mx-auto max-w-10xl px-2 py-3 sm:px-4 sm:py-5'">
+        <div v-if="!isAnalysisPage && quota.limited"
           class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-xs leading-6 text-rose-800 dark:text-rose-200"
           role="alert">
           <span aria-hidden="true">⛔</span>
@@ -78,7 +78,7 @@
           <button @click="quota.dismiss()" class="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold"
             aria-label="بستن">✕</button>
         </div>
-        <div v-if="market.error"
+        <div v-if="!isAnalysisPage && market.error"
           class="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs leading-6 text-amber-800 dark:text-amber-200"
           role="status">
           <span aria-hidden="true">⚠️</span>
@@ -87,7 +87,7 @@
         <slot />
       </main>
 
-      <footer class="mx-auto max-w-7xl px-2 pb-4 text-[11px] leading-6 text-muted sm:px-4 sm:pb-8">
+      <footer v-if="!isAnalysisPage" class="mx-auto max-w-7xl px-2 pb-4 text-[11px] leading-6 text-muted sm:px-4 sm:pb-8">
         <div class="rounded-2xl border border-line bg-surface px-4 py-3">
           داده‌ها از سرویس BrsApi (TSETMC / IME / CODAL) تامین می‌شود. در صورت نبود کلید API، داده نمایشی (mock) با
           برچسب مشخص نمایش داده می‌شود و نباید مبنای تصمیم معاملاتی قرار گیرد. جزئیات اتصال: <span class="font-mono"
@@ -116,7 +116,12 @@ const sidebarOpen = ref(false)
 const clock = ref(tehranNow())
 let clockTimer = 0
 
+function onOpenSidebarEvent(): void {
+  sidebarOpen.value = true
+}
+
 onMounted(() => {
+  window.addEventListener('open-app-sidebar', onOpenSidebarEvent)
   // Layout owns the sidebar timestamp, so it triggers the shared refresh
   // itself — pages showing other datasets must not leave it stale.
   void market.load()
@@ -132,6 +137,7 @@ function retryQuota(): void {
 }
 
 onBeforeUnmount(() => {
+  window.removeEventListener('open-app-sidebar', onOpenSidebarEvent)
   if (clockTimer) window.clearInterval(clockTimer)
 })
 
@@ -148,4 +154,5 @@ const nav = [
 
 const pageTitle = computed(() => (route.meta.title as string) || 'داشبورد')
 const pageSubtitle = computed(() => (route.meta.subtitle as string) || '')
+const isAnalysisPage = computed(() => route.name === 'stock-analysis')
 </script>

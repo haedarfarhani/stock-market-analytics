@@ -1,200 +1,259 @@
 <template>
-  <div ref="wrap" class="analysis-root flex min-h-0 flex-1 flex-col gap-2 pb-14 lg:pb-0" :class="{ 'fs-fallback': fsFallback }">
-    <!-- Top Station Header -->
-    <header class="overflow-hidden rounded-2xl border border-line bg-surface p-2.5 sm:p-3 shadow-xs">
-      <!-- Zone 1: Identity & Navigation & Actions -->
-      <div class="flex items-center justify-between gap-2">
-        <!-- Right: Back button + Monogram + Title & Market badge -->
-        <div class="flex min-w-0 items-center gap-2">
-          <RouterLink
-            to="/stocks"
-            class="flex h-9 items-center gap-1.5 rounded-xl border border-line bg-secondary/60 px-2.5 text-xs font-bold text-ink transition hover:border-brand hover:bg-brand/10 hover:text-brand shrink-0"
-            title="بازگشت به فهرست سهام"
-          >
-            <ChartIcon name="arrowRight" :size="16" />
-            <span class="hidden sm:inline">سهام</span>
-          </RouterLink>
+  <div ref="wrap" class="tv-workspace flex h-full w-full flex-col overflow-hidden bg-page text-ink select-none" :class="{ 'fs-mode': fsActive }">
+    <!-- Top TradingView Toolbar -->
+    <header class="flex h-11 shrink-0 items-center justify-between border-b border-line bg-surface px-2 text-xs">
+      <!-- Right zone (RTL start): Navigation, Symbol, Timeframes, Chart Type, Indicators -->
+      <div class="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar">
+        <!-- Site Menu Drawer Trigger -->
+        <button
+          @click="openAppSidebar"
+          class="flex h-8 items-center gap-1 rounded-lg px-2 font-bold text-muted transition hover:bg-secondary hover:text-ink"
+          title="منوی ناوبری سایت"
+          aria-label="منوی سایت"
+        >
+          <span class="text-base leading-none">☰</span>
+          <span class="hidden xl:inline">منو</span>
+        </button>
 
-          <div
-            class="brand-gradient grid h-9 w-9 sm:h-10 sm:w-10 shrink-0 place-items-center rounded-xl text-base sm:text-lg font-black text-white shadow-md shadow-brand/25"
-            aria-hidden="true"
-          >
-            {{ (symbolParam || '؟').slice(0, 1) }}
-          </div>
+        <!-- Back to stocks -->
+        <RouterLink
+          to="/stocks"
+          class="flex h-8 items-center gap-1 rounded-lg px-2 font-bold text-muted transition hover:bg-secondary hover:text-ink"
+          title="بازگشت به فهرست سهام"
+        >
+          <ChartIcon name="arrowRight" :size="16" />
+          <span class="hidden md:inline">سهام</span>
+        </RouterLink>
 
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-1.5">
-              <h1 class="text-base sm:text-lg font-black text-ink tracking-tight truncate">
-                {{ symbolParam }}
-              </h1>
-              <span v-if="headerMarket" class="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted">
-                {{ headerMarket }}
-              </span>
-              <span
-                v-if="detail?.state"
-                class="rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 text-[10px] font-bold"
-                :title="`وضعیت معاملاتی: ${detail.state}`"
-              >
-                {{ detail.state }}
-              </span>
-            </div>
-            <p class="truncate text-xs text-muted max-w-[160px] sm:max-w-md" :title="headerCompany">
-              {{ headerCompany }}
-            </p>
-          </div>
+        <span class="h-4 w-px bg-line" aria-hidden="true" />
+
+        <!-- Symbol selector trigger -->
+        <button
+          @click="searchModalOpen = true"
+          class="flex h-8 items-center gap-1.5 rounded-lg bg-secondary/70 px-2.5 font-black text-ink transition hover:border-brand hover:bg-brand/10 hover:text-brand"
+          title="جستجو و تغییر نماد (/)"
+        >
+          <span class="text-sm font-black text-brand">{{ symbolParam }}</span>
+          <span class="text-[10px] text-muted font-normal hidden lg:inline max-w-[120px] truncate">{{ headerCompany }}</span>
+          <ChartIcon name="chevron" :size="12" class="text-muted rotate-90" />
+        </button>
+
+        <!-- Star Watchlist Toggle -->
+        <button
+          @click="watch.toggle(symbolParam)"
+          class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary"
+          :class="watch.has(symbolParam) ? 'text-amber-500' : 'hover:text-ink'"
+          :title="watch.has(symbolParam) ? 'حذف از دیده‌بان' : 'افزودن به دیده‌بان'"
+        >
+          <ChartIcon name="star" :size="16" :stroke="watch.has(symbolParam) ? 2.5 : 1.8" />
+        </button>
+
+        <span class="h-4 w-px bg-line" aria-hidden="true" />
+
+        <!-- Timeframe Selector -->
+        <div class="flex items-center gap-0.5 rounded-lg bg-secondary/50 p-0.5" role="group" aria-label="تایم‌فریم">
+          <button
+            @click="setSet('intraday')"
+            class="h-7 rounded-md px-2 text-xs font-bold transition"
+            :class="prefs.set === 'intraday' ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
+            title="کندل‌های ۲دقیقه‌ای امروز"
+          >
+            امروز
+          </button>
+          <button
+            @click="setSetAndAgg('adjusted', 'daily')"
+            class="h-7 rounded-md px-2 text-xs font-bold transition"
+            :class="prefs.set !== 'intraday' && agg === 'daily' ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
+            title="تایم‌فریم روزانه (D)"
+          >
+            D
+          </button>
+          <button
+            @click="setSetAndAgg('adjusted', 'weekly')"
+            class="h-7 rounded-md px-2 text-xs font-bold transition"
+            :class="prefs.set !== 'intraday' && agg === 'weekly' ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
+            title="تایم‌فریم هفتگی (W)"
+          >
+            W
+          </button>
+          <button
+            @click="setSetAndAgg('adjusted', 'monthly')"
+            class="h-7 rounded-md px-2 text-xs font-bold transition"
+            :class="prefs.set !== 'intraday' && agg === 'monthly' ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
+            title="تایم‌فریم ماهانه (M)"
+          >
+            M
+          </button>
         </div>
 
-        <!-- Left: Quick Actions -->
-        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <!-- Star Watchlist toggle -->
+        <span class="h-4 w-px bg-line" aria-hidden="true" />
+
+        <!-- Chart Kind Selector -->
+        <div class="flex items-center gap-0.5 rounded-lg bg-secondary/50 p-0.5" role="group" aria-label="نوع نمودار">
           <button
-            @click="watch.toggle(symbolParam)"
-            class="grid h-9 w-9 place-items-center rounded-xl border border-line transition hover:border-brand"
-            :class="watch.has(symbolParam) ? 'bg-amber-500/10 border-amber-500/40 text-amber-500' : 'text-muted hover:text-ink'"
-            :title="watch.has(symbolParam) ? 'حذف از دیده‌بان' : 'افزودن به دیده‌بان'"
-            :aria-label="watch.has(symbolParam) ? 'حذف از دیده‌بان' : 'افزودن به دیده‌بان'"
+            v-for="k in chartKinds"
+            :key="k.key"
+            @click="setKind(k.key)"
+            :title="k.label"
+            class="grid h-7 w-7 place-items-center rounded-md transition"
+            :class="prefs.kind === k.key ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
           >
-            <ChartIcon name="star" :size="18" :stroke="watch.has(symbolParam) ? 2.5 : 1.8" />
+            <ChartIcon :name="k.icon" :size="18" />
           </button>
+        </div>
 
-          <!-- Quick Search Trigger Modal -->
+        <span class="h-4 w-px bg-line" aria-hidden="true" />
+
+        <!-- Indicators Trigger Button (fx) -->
+        <button
+          @click="openIndicators"
+          class="flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-bold transition"
+          :class="sidePanel === 'indicators' || activeMobileSheet === 'indicators' ? 'bg-brand/10 text-brand' : 'text-muted hover:bg-secondary hover:text-ink'"
+          title="افزودن و مدیریت اندیکاتورها (fx)"
+        >
+          <span class="font-serif italic font-black text-brand text-xs">fx</span>
+          <span>اندیکاتورها</span>
+          <span v-if="indicators.length" class="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-bold text-white leading-none">
+            {{ toFaDigits(indicators.length) }}
+          </span>
+        </button>
+
+        <!-- Adjusted / Unadjusted Toggle -->
+        <button
+          v-if="prefs.set !== 'intraday'"
+          @click="setSet(prefs.set === 'adjusted' ? 'unadjusted' : 'adjusted')"
+          class="hidden sm:flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-bold text-muted transition hover:bg-secondary hover:text-ink"
+          :title="prefs.set === 'adjusted' ? 'کندل‌های تعدیل‌شده' : 'کندل‌های تعدیل‌نشده'"
+        >
+          <span>{{ prefs.set === 'adjusted' ? 'تعدیل‌شده' : 'تعدیل‌نشده' }}</span>
+        </button>
+
+        <span class="h-4 w-px bg-line hidden sm:inline" aria-hidden="true" />
+
+        <!-- Undo & Redo -->
+        <div class="hidden sm:flex items-center gap-0.5">
           <button
-            @click="searchModalOpen = true"
-            class="flex h-9 items-center gap-1.5 rounded-xl border border-line bg-secondary/50 px-2 sm:px-2.5 text-xs font-bold text-muted transition hover:border-brand hover:text-brand"
-            title="جستجوی سریع نماد (/)"
+            @click="doUndo"
+            :disabled="!canUndo"
+            class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary disabled:opacity-30"
+            title="واگرد (Ctrl+Z)"
           >
-            <ChartIcon name="search" :size="16" />
-            <span class="hidden md:inline">جستجوی نماد</span>
-            <kbd class="hidden md:inline-block rounded bg-surface px-1 text-[10px] font-mono border border-line text-muted">/</kbd>
+            <ChartIcon name="undo" :size="16" />
           </button>
-
-          <!-- Stock Details Fundamental Link -->
-          <RouterLink
-            :to="`/stocks/${encodeURIComponent(symbolParam)}`"
-            class="hidden sm:flex h-9 items-center gap-1 rounded-xl border border-line px-2.5 text-xs font-bold text-muted transition hover:border-brand hover:text-brand"
-            title="مشاهده مشخصات و آمار معاملات"
-          >
-            <ChartIcon name="info" :size="16" />
-            <span class="hidden xl:inline">مشخصات</span>
-          </RouterLink>
-
-          <!-- Refresh button -->
           <button
-            @click="reload(true)"
-            :disabled="loading"
-            class="grid h-9 w-9 place-items-center rounded-xl border border-line text-muted transition hover:border-brand hover:text-brand disabled:opacity-50"
-            title="به‌روزرسانی داده‌ها"
-            aria-label="به‌روزرسانی"
+            @click="doRedo"
+            :disabled="!canRedo"
+            class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary disabled:opacity-30"
+            title="ازنو (Ctrl+Y)"
           >
-            <span :class="{ 'animate-spin': loading }">
-              <ChartIcon name="refresh" :size="17" />
-            </span>
-          </button>
-
-          <!-- Fullscreen toggle -->
-          <button
-            @click="toggleFs"
-            class="grid h-9 w-9 place-items-center rounded-xl border border-line text-muted transition hover:border-brand hover:text-brand"
-            :title="fsActive ? 'خروج از تمام‌صفحه (F)' : 'تمام‌صفحه (F)'"
-            aria-label="تمام‌صفحه"
-          >
-            <ChartIcon :name="fsActive ? 'exitfull' : 'fullscreen'" :size="18" />
+            <ChartIcon name="redo" :size="16" />
           </button>
         </div>
       </div>
 
-      <!-- Zone 2: Price & Dynamic Live/Hover OHLC Ticker Bar -->
-      <div class="mt-2.5 border-t border-line/70 pt-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
-        <!-- Last Price & Change Badge -->
-        <div class="flex items-baseline gap-2.5 shrink-0">
-          <span class="text-xs text-muted">قیمت پایانی:</span>
-          <span class="tnum text-xl sm:text-2xl font-black" :class="changeClass(legendChangePct)">
-            {{ formatFaNumber(legend?.close ?? headerPrice) }}
-            <span class="text-[11px] font-normal text-muted">ریال</span>
-          </span>
-          <span
-            class="tnum inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold"
-            :class="(legendChangePct ?? 0) >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
-          >
-            <span>{{ (legendChangePct ?? 0) >= 0 ? '▲' : '▼' }}</span>
-            <span>{{ formatFaPercent(legendChangePct) }}</span>
-            <span class="text-[10px] opacity-80">({{ formatFaNumber(legendChange) }})</span>
-          </span>
-        </div>
+      <!-- Left zone (RTL end): Actions, Settings, Fullscreen, Screenshot -->
+      <div class="flex items-center gap-1 shrink-0">
+        <!-- Watchlist panel toggle -->
+        <button
+          @click="toggleWatchlist"
+          class="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-bold transition"
+          :class="sidePanel === 'watch' || activeMobileSheet === 'watch' ? 'bg-brand/10 text-brand' : 'text-muted hover:bg-secondary hover:text-ink'"
+          title="نمادهای دیده‌بان"
+        >
+          <ChartIcon name="layers" :size="16" />
+          <span class="hidden md:inline">دیده‌بان</span>
+        </button>
 
-        <!-- OHLC Ticker Metrics (Dynamically shows hovered bar, or latest bar) -->
-        <div class="no-scrollbar flex items-center gap-2 overflow-x-auto text-xs text-muted py-0.5">
-          <span v-if="hoverBar" class="rounded bg-brand/10 text-brand px-1.5 py-0.5 text-[10px] font-bold shrink-0">
-            کندل انتخابی: {{ formatCandleTime(hoverBar.time) }}
+        <!-- Quick Settings Menu / Drawer -->
+        <button
+          @click="openSettings"
+          class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary hover:text-ink"
+          title="تنظیمات نمودار (شبکه، آهنربا، حجم)"
+        >
+          <ChartIcon name="settings" :size="17" />
+        </button>
+
+        <!-- Screenshot camera -->
+        <button
+          @click="shot"
+          class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary hover:text-ink"
+          title="دانلود تصویر نمودار"
+        >
+          <ChartIcon name="camera" :size="17" />
+        </button>
+
+        <!-- Refresh button -->
+        <button
+          @click="reload(true)"
+          :disabled="loading"
+          class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary hover:text-ink disabled:opacity-40"
+          title="تازه‌سازی داده‌ها"
+        >
+          <span :class="{ 'animate-spin': loading }">
+            <ChartIcon name="refresh" :size="16" />
           </span>
-          <div class="flex items-center gap-2 tnum whitespace-nowrap shrink-0">
-            <span>باز: <strong class="text-ink font-bold">{{ formatFaNumber(legend?.open) }}</strong></span>
-            <span class="text-line" aria-hidden="true">·</span>
-            <span>سقف: <strong class="text-emerald-600 dark:text-emerald-400 font-bold">{{ formatFaNumber(legend?.high) }}</strong></span>
-            <span class="text-line" aria-hidden="true">·</span>
-            <span>کف: <strong class="text-rose-600 dark:text-rose-400 font-bold">{{ formatFaNumber(legend?.low) }}</strong></span>
-            <span class="text-line" aria-hidden="true">·</span>
-            <span>پایانی: <strong class="text-ink font-bold">{{ formatFaNumber(legend?.close) }}</strong></span>
-            <span v-if="legend?.volume != null" class="text-line" aria-hidden="true">·</span>
-            <span v-if="legend?.volume != null">حجم: <strong class="text-ink font-bold">{{ formatCompactFa(legend.volume) }}</strong></span>
-          </div>
-        </div>
+        </button>
+
+        <!-- Fullscreen toggle -->
+        <button
+          @click="toggleFs"
+          class="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-secondary hover:text-ink"
+          :title="fsActive ? 'خروج از تمام‌صفحه (F)' : 'تمام‌صفحه (F)'"
+        >
+          <ChartIcon :name="fsActive ? 'exitfull' : 'fullscreen'" :size="17" />
+        </button>
       </div>
     </header>
 
-    <!-- Toolbar -->
-    <div class="rounded-2xl border border-line bg-surface px-2 shadow-xs">
-      <ChartToolbar
-        :kind="prefs.kind"
-        :set="prefs.set"
-        :agg="agg"
-        :range="prefs.range"
-        :volume="prefs.volumeVisible"
-        :magnet="prefs.crosshairMagnet"
-        :grid="prefs.gridVisible"
-        :auto="auto"
-        :panels="sidePanel"
-        :can-undo="canUndo"
-        :can-redo="canRedo"
-        @kind="setKind"
-        @set="setSet"
-        @agg="setAgg"
-        @range="setRange"
-        @toggle="onToggleToolbar"
-        @undo="doUndo"
-        @redo="doRedo"
-        @reset="resetView"
-        @shot="shot"
-        @refresh="reload(true)"
-        @fullscreen="toggleFs"
-      />
-    </div>
+    <!-- Main Workspace (attached chart canvas + left drawing rail + side panels) -->
+    <div class="relative flex min-h-0 flex-1 items-stretch overflow-hidden">
+      <!-- Main Chart Area -->
+      <div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-page">
+        <!-- Floating In-Chart Legend (TradingView style overlay inside the canvas) -->
+        <div class="pointer-events-none absolute top-2 right-3 z-10 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-surface/80 px-2.5 py-1 text-xs backdrop-blur-xs border border-line/50 tnum select-text shadow-xs">
+          <span class="font-black text-ink">{{ headerCompany || symbolParam }}</span>
+          <span v-if="headerMarket" class="rounded bg-secondary px-1 text-[10px] font-bold text-muted">{{ headerMarket }}</span>
+          <span class="text-line" aria-hidden="true">·</span>
+          <span>آخرین: <strong :class="changeClass(legendChangePct)">{{ formatFaNumber(legend?.close ?? headerPrice) }}</strong></span>
+          <span
+            v-if="legendChangePct != null"
+            class="font-bold text-[11px]"
+            :class="changeClass(legendChangePct)"
+          >
+            ({{ formatFaPercent(legendChangePct) }})
+          </span>
+          <span class="text-line hidden sm:inline" aria-hidden="true">·</span>
+          <span class="hidden sm:inline">کمترین: <strong class="text-rose-500 font-bold">{{ formatFaNumber(legend?.low) }}</strong></span>
+          <span class="text-line hidden sm:inline" aria-hidden="true">·</span>
+          <span class="hidden sm:inline">بیشترین: <strong class="text-emerald-500 font-bold">{{ formatFaNumber(legend?.high) }}</strong></span>
+          <span class="text-line hidden md:inline" aria-hidden="true">·</span>
+          <span class="hidden md:inline">باز: <strong>{{ formatFaNumber(legend?.open) }}</strong></span>
+          <span v-if="legend?.volume" class="text-line hidden md:inline" aria-hidden="true">·</span>
+          <span v-if="legend?.volume" class="hidden md:inline">حجم: <strong class="text-ink">{{ formatCompactFa(legend.volume) }}</strong></span>
+          <span v-if="isMockNow" class="rounded bg-amber-500/10 px-1.5 text-[10px] font-bold text-amber-500">داده آزمایشی</span>
+        </div>
 
-    <!-- Workspace (Chart + Rail + Sidepanel) -->
-    <div class="flex min-h-0 min-w-0 flex-1 items-stretch gap-2">
-      <!-- Chart Container -->
-      <div class="analysis-chart relative h-[54dvh] sm:h-[62dvh] min-h-[380px] max-h-[820px] min-w-0 flex-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-xs lg:h-[calc(100dvh-20rem)]">
         <!-- Floating Active Tool HUD (when drawing tool is selected) -->
         <div
           v-if="tool !== 'cursor'"
-          class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex max-w-[95%] flex-wrap items-center justify-center gap-2 rounded-2xl border border-brand/40 bg-surface/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur-md"
+          class="absolute top-10 left-1/2 -translate-x-1/2 z-20 flex max-w-[95%] items-center gap-2 rounded-xl border border-brand/50 bg-surface/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur-md"
         >
           <div class="flex items-center gap-1.5 font-bold text-brand">
-            <ChartIcon :name="toolIcon" :size="18" />
+            <ChartIcon :name="toolIcon" :size="16" />
             <span>{{ toolLabel }}</span>
           </div>
-          <span class="hidden sm:inline text-[11px] text-muted">· برای ترسیم روی چارت کلیک یا درگ کنید</span>
-          <div class="flex items-center gap-1.5">
+          <span class="hidden sm:inline text-[11px] text-muted">· برای ترسیم روی نمودار کلیک یا درگ کنید</span>
+          <div class="flex items-center gap-1">
             <input
               v-model="drawStyle.color"
               type="color"
-              class="h-6 w-6 cursor-pointer rounded border border-line bg-transparent p-0"
-              title="رنگ ترسیم"
+              class="h-5 w-5 cursor-pointer rounded border border-line bg-transparent p-0"
+              title="رنگ"
             />
             <select
               v-model.number="drawStyle.width"
-              class="rounded border border-line bg-surface px-1.5 py-0.5 text-[11px] font-bold"
-              title="ضخامت خط"
+              class="rounded border border-line bg-surface px-1 text-[11px] font-bold"
+              title="ضخامت"
             >
               <option :value="1">1</option>
               <option :value="2">2</option>
@@ -204,90 +263,88 @@
           </div>
           <button
             @click="setTool('cursor')"
-            class="flex items-center gap-1 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-1 text-xs font-bold transition hover:bg-rose-500/20"
-            title="انصراف (Esc)"
+            class="flex items-center gap-1 rounded-md bg-rose-500/10 text-rose-600 px-2 py-0.5 text-xs font-bold hover:bg-rose-500/20"
           >
-            <ChartIcon name="close" :size="13" />
+            <ChartIcon name="close" :size="12" />
             <span>انصراف</span>
           </button>
         </div>
 
-        <!-- Drawings count pill -->
-        <div
-          v-if="drawings.length"
-          class="absolute bottom-3 left-3 z-10 hidden sm:flex items-center gap-1.5 rounded-full bg-secondary/90 px-3 py-1 text-[11px] font-bold text-muted backdrop-blur"
-        >
-          <ChartIcon name="layers" :size="14" />
-          <span>{{ toFaDigits(drawings.length) }} لایه ترسیم</span>
-        </div>
-
-        <!-- Loading State -->
-        <div v-if="loading" class="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-surface/75 backdrop-blur-xs" role="status">
+        <!-- Loading spinner overlay -->
+        <div v-if="loading && !candles.length" class="absolute inset-0 z-10 grid place-items-center bg-surface/80 backdrop-blur-xs">
           <div class="flex flex-col items-center gap-3">
             <span class="loader-ring" aria-hidden="true" />
-            <p class="text-xs sm:text-sm font-bold text-ink">در حال دریافت داده‌های نماد…</p>
+            <p class="text-xs font-bold text-ink">در حال آماده‌سازی نمودار…</p>
           </div>
         </div>
 
-        <!-- Error State -->
-        <div v-if="loadError && !candles.length" class="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-surface p-4" role="alert">
-          <div class="max-w-md text-center">
-            <div class="mx-auto mb-2 grid h-12 w-12 place-items-center rounded-2xl bg-rose-500/10 text-rose-500">
-              <ChartIcon name="alert" :size="24" />
-            </div>
-            <p class="text-sm font-bold text-ink">خطا در دریافت کندل‌ها</p>
-            <p class="mt-1 text-xs leading-6 text-muted">{{ loadError }}</p>
+        <!-- Canvas Container -->
+        <div class="relative min-h-0 flex-1 w-full overflow-hidden">
+          <ProChart
+            ref="pro"
+            :candles="displayCandles"
+            :kind="prefs.kind"
+            :volume-visible="prefs.volumeVisible"
+            :grid-visible="prefs.gridVisible"
+            :magnet="prefs.crosshairMagnet"
+            :overlays="overlayLines"
+            :oscillators="oscGroups"
+            :volume-overlay="volLines"
+            @hover="hoverBar = $event"
+            @ready="frame++"
+            @view-change="frame++"
+          />
+
+          <!-- Drawing Layer -->
+          <DrawingLayer
+            v-if="proApi && (candles.length || displayCandles.length)"
+            :frame="frame"
+            :drawings="drawings"
+            :tool="tool"
+            :selected-id="selectedId"
+            :style="drawStyle"
+            :api="proApi"
+            @create="onCreate"
+            @update="onTransient"
+            @commit="onCommit"
+            @select="selectedId = $event"
+          />
+        </div>
+
+        <!-- Bottom TradingView Bar (Ranges & Timezone & Scale) -->
+        <footer class="flex h-8 shrink-0 items-center justify-between border-t border-line bg-surface px-2 text-[11px] text-muted">
+          <!-- Left: Auto / Log / Clock -->
+          <div class="flex items-center gap-1.5 tnum">
             <button
-              @click="reload(true)"
-              class="mt-3 rounded-xl bg-brand-solid px-4 py-2 text-xs font-bold text-white shadow-sm shadow-brand/25 transition hover:bg-brand-strong"
+              @click="resetView"
+              class="rounded px-1.5 py-0.5 font-bold transition hover:bg-secondary hover:text-ink text-brand"
+              title="تنظیم خودکار مقیاس نما (Fit Content)"
             >
-              تلاش مجدد
+              خودکار
+            </button>
+            <span class="text-line" aria-hidden="true">·</span>
+            <span>(UTC+3:30) {{ tehranClock }}</span>
+            <span v-if="datasetSource" class="hidden xl:inline text-line" aria-hidden="true">·</span>
+            <span v-if="datasetSource" class="hidden xl:inline text-[10px] text-muted">{{ datasetSource }}</span>
+          </div>
+
+          <!-- Right: Range Presets (1M, 3M, 6M, 1Y, 5Y, All) -->
+          <div v-if="prefs.set !== 'intraday'" class="flex items-center gap-0.5" role="group" aria-label="بازه تاریخی">
+            <button
+              v-for="r in rangePresets"
+              :key="r.days"
+              @click="setRange(r.days)"
+              class="rounded px-1.5 py-0.5 font-bold transition"
+              :class="prefs.range === r.days ? 'bg-brand/10 text-brand font-black' : 'text-muted hover:text-ink hover:bg-secondary'"
+            >
+              {{ r.label }}
             </button>
           </div>
-        </div>
-
-        <!-- Empty State -->
-        <div v-if="!loading && !loadError && !candles.length" class="absolute inset-0 z-10 grid place-items-center rounded-2xl bg-surface p-4">
-          <div class="text-center text-muted">
-            <p class="text-sm font-bold">برای این نماد کندلی یافت نشد.</p>
-            <p class="mt-1 text-xs">نماد دیگری را انتخاب کنید یا بازه زمانی را تغییر دهید.</p>
-          </div>
-        </div>
-
-        <!-- ProChart component -->
-        <ProChart
-          ref="pro"
-          :candles="displayCandles"
-          :kind="prefs.kind"
-          :volume-visible="prefs.volumeVisible"
-          :grid-visible="prefs.gridVisible"
-          :magnet="prefs.crosshairMagnet"
-          :overlays="overlayLines"
-          :oscillators="oscGroups"
-          :volume-overlay="volLines"
-          @hover="hoverBar = $event"
-          @ready="frame++"
-          @view-change="frame++"
-        />
-
-        <!-- Drawing Layer -->
-        <DrawingLayer
-          v-if="proApi && candles.length"
-          :frame="frame"
-          :drawings="drawings"
-          :tool="tool"
-          :selected-id="selectedId"
-          :style="drawStyle"
-          :api="proApi"
-          @create="onCreate"
-          @update="onTransient"
-          @commit="onCommit"
-          @select="selectedId = $event"
-        />
+        </footer>
       </div>
 
-      <!-- Desktop Drawing Rail (Physical left in RTL) -->
-      <div class="hidden min-h-0 w-14 shrink-0 flex-col self-stretch overflow-y-auto rounded-2xl border border-line bg-surface px-1 shadow-xs lg:flex">
+      <!-- Left Vertical Drawing Rail (Directly attached to canvas, full height) -->
+      <div class="hidden h-full w-11 shrink-0 flex-col overflow-y-auto no-scrollbar border-e border-line bg-surface p-0.5 lg:flex">
         <DrawingToolbar
           vertical
           :tool="tool"
@@ -307,20 +364,19 @@
         />
       </div>
 
-      <!-- Desktop Side Panel -->
-      <aside v-if="sidePanel" class="hidden w-80 shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface xl:flex">
-        <!-- Tab Bar Header -->
-        <div class="flex items-center border-b border-line bg-secondary/40 p-1.5">
+      <!-- Desktop Side Panel Drawer (Indicators / Watchlist) -->
+      <aside v-if="sidePanel" class="hidden h-full w-80 shrink-0 flex-col overflow-hidden border-s border-line bg-surface xl:flex">
+        <div class="flex items-center border-b border-line bg-secondary/30 p-1.5">
           <button
             @click="sidePanel = 'indicators'"
-            class="flex-1 rounded-xl py-1.5 text-xs font-bold transition"
+            class="flex-1 rounded-lg py-1 text-xs font-bold transition"
             :class="sidePanel === 'indicators' ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
           >
             اندیکاتورها ({{ toFaDigits(indicators.length) }})
           </button>
           <button
             @click="sidePanel = 'watch'"
-            class="flex-1 rounded-xl py-1.5 text-xs font-bold transition"
+            class="flex-1 rounded-lg py-1 text-xs font-bold transition"
             :class="sidePanel === 'watch' ? 'bg-surface text-brand shadow-xs' : 'text-muted hover:text-ink'"
           >
             دیده‌بان ({{ toFaDigits(watchRows.length) }})
@@ -328,13 +384,12 @@
           <button
             @click="sidePanel = null"
             class="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-secondary hover:text-ink"
-            title="بستن پنل"
+            title="بستن"
           >
-            <ChartIcon name="close" :size="15" />
+            <ChartIcon name="close" :size="14" />
           </button>
         </div>
 
-        <!-- Indicators Tab Content -->
         <div v-if="sidePanel === 'indicators'" class="flex-1 overflow-hidden">
           <IndicatorPanel
             :instances="indicators"
@@ -346,172 +401,57 @@
           />
         </div>
 
-        <!-- Watchlist Tab Content -->
         <div v-else-if="sidePanel === 'watch'" class="flex h-full flex-col p-3">
-          <div class="flex items-center justify-between pb-2 border-b border-line">
-            <h3 class="text-sm font-black text-ink">نمادهای دیده‌بان</h3>
-            <span class="tnum text-xs text-muted">{{ toFaDigits(watchRows.length) }} نماد</span>
+          <div class="flex items-center justify-between pb-2 border-b border-line text-xs font-bold text-ink">
+            <span>نمادهای برگزیده</span>
+            <span class="tnum text-muted">{{ toFaDigits(watchRows.length) }} نماد</span>
           </div>
           <ul class="mt-2 flex-1 space-y-1 overflow-y-auto">
             <li v-for="s in watchRows" :key="s.l18">
               <button
                 @click="goSymbolTo(s.l18)"
-                class="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-right text-xs transition hover:bg-secondary"
-                :class="s.l18 === symbolParam ? 'bg-brand/10 border border-brand/20 font-bold' : ''"
+                class="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-right text-xs transition hover:bg-secondary"
+                :class="s.l18 === symbolParam ? 'bg-brand/10 text-brand font-bold' : ''"
               >
-                <span class="font-bold text-ink">{{ s.l18 }}</span>
-                <span class="truncate text-[11px] text-muted max-w-[90px]">{{ s.l30 }}</span>
+                <span class="font-bold">{{ s.l18 }}</span>
+                <span class="truncate text-[11px] text-muted max-w-[85px]">{{ s.l30 }}</span>
                 <span class="tnum ms-auto font-bold">{{ formatFaNumber(s.pc) }}</span>
                 <ChangeBadge :value="s.pcp" />
               </button>
             </li>
           </ul>
           <div v-if="!watchRows.length" class="py-12 text-center text-xs text-muted">
-            <p>دیده‌بان شما خالی است.</p>
-            <p class="mt-1">با کلیک روی ستاره نمادها را اضافه کنید.</p>
+            دیده‌بان خالی است. با ستاره بالای صفحه نماد اضافه کنید.
           </div>
         </div>
       </aside>
     </div>
 
-    <!-- Data Footnote -->
-    <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted">
-      <div class="flex items-center gap-1.5 flex-wrap tnum">
-        <span>{{ datasetSource }}</span>
-        <span aria-hidden="true">·</span>
-        <span>{{ updatedFa }}</span>
-        <template v-if="aggNote">
-          <span aria-hidden="true">·</span>
-          <span>{{ aggNote }}</span>
-        </template>
-        <template v-if="isMockNow">
-          <span aria-hidden="true">·</span>
-          <span class="text-amber-500 font-bold">داده نمایشی (آزمایشی)</span>
-        </template>
-      </div>
-      <div class="hidden sm:flex items-center gap-3 text-[11px]">
-        <span>میانبر جستجو: <kbd class="rounded border border-line bg-surface px-1 font-mono">/</kbd></span>
-        <span>تمام‌صفحه: <kbd class="rounded border border-line bg-surface px-1 font-mono">F</kbd></span>
-      </div>
-    </div>
-
-    <!-- Mobile Bottom Navigation Dock (Thumb-friendly mobile bar) -->
-    <nav class="lg:hidden fixed inset-x-2 bottom-2 z-30 mx-auto max-w-lg" aria-label="دسترسی سریع نمودار">
-      <div class="flex items-center justify-around rounded-2xl border border-line bg-surface/95 p-1.5 shadow-xl backdrop-blur-md">
-        <!-- Drawings -->
-        <button
-          @click="openMobileSheet('drawings')"
-          class="flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition"
-          :class="tool !== 'cursor' ? 'text-brand bg-brand/10' : 'text-muted hover:text-ink'"
-        >
-          <ChartIcon name="brush" :size="20" />
-          <span>ترسیم</span>
-        </button>
-
-        <!-- Indicators -->
-        <button
-          @click="openMobileSheet('indicators')"
-          class="relative flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition"
-          :class="activeMobileSheet === 'indicators' ? 'text-brand bg-brand/10' : 'text-muted hover:text-ink'"
-        >
-          <ChartIcon name="indicators" :size="20" />
-          <span>اندیکاتورها</span>
-          <span
-            v-if="indicators.length"
-            class="absolute -top-1 start-2 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[9px] font-bold text-white shadow-xs"
-          >
-            {{ toFaDigits(indicators.length) }}
-          </span>
-        </button>
-
-        <!-- Watchlist -->
-        <button
-          @click="openMobileSheet('watch')"
-          class="flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition"
-          :class="activeMobileSheet === 'watch' ? 'text-brand bg-brand/10' : 'text-muted hover:text-ink'"
-        >
-          <ChartIcon name="star" :size="20" />
-          <span>دیده‌بان</span>
-        </button>
-
-        <!-- Chart Settings & Display -->
-        <button
-          @click="openMobileSheet('settings')"
-          class="flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition"
-          :class="activeMobileSheet === 'settings' ? 'text-brand bg-brand/10' : 'text-muted hover:text-ink'"
-        >
-          <ChartIcon name="settings" :size="20" />
-          <span>تنظیمات</span>
-        </button>
-
-        <!-- Fullscreen -->
-        <button
-          @click="toggleFs"
-          class="flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 text-[11px] font-bold text-muted transition hover:text-ink"
-        >
-          <ChartIcon :name="fsActive ? 'exitfull' : 'fullscreen'" :size="20" />
-          <span>{{ fsActive ? 'خروج' : 'تمام‌صفحه' }}</span>
-        </button>
-      </div>
-    </nav>
-
-    <!-- Mobile Bottom Sheet Dialog -->
+    <!-- Mobile Bottom Sheets (Drawings, Indicators, Watchlist, Settings) -->
     <div
       v-if="activeMobileSheet"
       class="fixed inset-0 z-50 lg:hidden"
       role="dialog"
       :aria-label="sheetTitle"
     >
-      <!-- Backdrop -->
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity" @click="activeMobileSheet = null" />
-
-      <!-- Sheet Container -->
-      <div class="absolute inset-x-0 bottom-0 max-h-[82vh] flex flex-col rounded-t-3xl border-t-2 border-brand/40 bg-surface shadow-2xl">
-        <!-- Handle & Header -->
-        <div class="p-3 border-b border-line shrink-0">
-          <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-line" aria-hidden="true" />
-          <div class="flex items-center justify-between">
-            <h3 class="flex items-center gap-2 text-sm font-black text-ink">
-              <ChartIcon :name="sheetIcon" :size="20" />
-              <span>{{ sheetTitle }}</span>
-            </h3>
-            <button
-              @click="activeMobileSheet = null"
-              class="grid h-8 w-8 place-items-center rounded-xl bg-secondary text-ink hover:bg-brand/10"
-              aria-label="بستن"
-            >
-              <ChartIcon name="close" :size="18" />
-            </button>
-          </div>
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-xs" @click="activeMobileSheet = null" />
+      <div class="absolute inset-x-0 bottom-0 max-h-[82vh] flex flex-col rounded-t-2xl border-t border-brand/40 bg-surface shadow-2xl">
+        <div class="p-3 border-b border-line shrink-0 flex items-center justify-between">
+          <h3 class="flex items-center gap-2 text-sm font-black text-ink">
+            <ChartIcon :name="sheetIcon" :size="18" />
+            <span>{{ sheetTitle }}</span>
+          </h3>
+          <button
+            @click="activeMobileSheet = null"
+            class="grid h-7 w-7 place-items-center rounded-lg bg-secondary text-ink"
+          >
+            <ChartIcon name="close" :size="16" />
+          </button>
         </div>
 
-        <!-- Sheet Body -->
         <div class="flex-1 overflow-y-auto p-3">
-          <!-- 1. Drawings Sheet -->
-          <div v-if="activeMobileSheet === 'drawings'" class="space-y-4">
-            <div>
-              <p class="text-xs font-bold text-muted mb-2">ابزار ترسیم را انتخاب کنید:</p>
-              <DrawingToolbar
-                :tool="tool"
-                :selected="selected"
-                :color="drawStyle.color"
-                :width="drawStyle.width"
-                :line-style="drawStyle.style"
-                @tool="(t) => { setTool(t); if (t !== 'cursor') activeMobileSheet = null }"
-                @update:color="drawStyle.color = $event"
-                @update:width="drawStyle.width = $event"
-                @update:lineStyle="drawStyle.style = $event"
-                @edit-text="editSelectedText"
-                @lock="toggleLock"
-                @hide="toggleHide"
-                @remove="removeSelected"
-                @clear="clearAll"
-              />
-            </div>
-          </div>
-
-          <!-- 2. Indicators Sheet -->
-          <div v-else-if="activeMobileSheet === 'indicators'" class="h-[60vh]">
+          <!-- Indicators -->
+          <div v-if="activeMobileSheet === 'indicators'" class="h-[62vh]">
             <IndicatorPanel
               :instances="indicators"
               @add="addIndicator"
@@ -522,17 +462,33 @@
             />
           </div>
 
-          <!-- 3. Watchlist Sheet -->
-          <div v-else-if="activeMobileSheet === 'watch'" class="space-y-2">
-            <div class="flex items-center justify-between pb-1 border-b border-line text-xs text-muted">
-              <span>نمادهای برگزیده شما</span>
-              <span class="tnum">{{ toFaDigits(watchRows.length) }} نماد</span>
-            </div>
+          <!-- Drawings -->
+          <div v-else-if="activeMobileSheet === 'drawings'">
+            <DrawingToolbar
+              :tool="tool"
+              :selected="selected"
+              :color="drawStyle.color"
+              :width="drawStyle.width"
+              :line-style="drawStyle.style"
+              @tool="(t) => { setTool(t); if (t !== 'cursor') activeMobileSheet = null }"
+              @update:color="drawStyle.color = $event"
+              @update:width="drawStyle.width = $event"
+              @update:lineStyle="drawStyle.style = $event"
+              @edit-text="editSelectedText"
+              @lock="toggleLock"
+              @hide="toggleHide"
+              @remove="removeSelected"
+              @clear="clearAll"
+            />
+          </div>
+
+          <!-- Watchlist -->
+          <div v-else-if="activeMobileSheet === 'watch'" class="space-y-1">
             <ul v-if="watchRows.length" class="space-y-1">
               <li v-for="s in watchRows" :key="s.l18">
                 <button
                   @click="goSymbolTo(s.l18); activeMobileSheet = null"
-                  class="flex w-full items-center gap-2 rounded-xl border border-line p-2.5 text-right transition hover:border-brand hover:bg-secondary"
+                  class="flex w-full items-center gap-2 rounded-xl border border-line p-2 text-right transition hover:border-brand"
                   :class="s.l18 === symbolParam ? 'border-brand bg-brand/5' : ''"
                 >
                   <span class="font-bold text-sm text-ink">{{ s.l18 }}</span>
@@ -542,66 +498,43 @@
                 </button>
               </li>
             </ul>
-            <div v-else class="py-10 text-center text-xs text-muted">
-              <p>دیده‌بان خالی است.</p>
-              <p class="mt-1">با کلیک روی ستاره در سربرگ، نمادها را ذخیره کنید.</p>
-            </div>
+            <p v-else class="py-10 text-center text-xs text-muted">دیده‌بان خالی است.</p>
           </div>
 
-          <!-- 4. Chart Settings Sheet -->
-          <div v-else-if="activeMobileSheet === 'settings'" class="space-y-3">
+          <!-- Settings -->
+          <div v-else-if="activeMobileSheet === 'settings'" class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
               <button
                 @click="onToggleToolbar('volume')"
-                class="flex items-center justify-between rounded-xl border border-line p-3 text-xs font-bold transition"
+                class="flex items-center justify-between rounded-xl border border-line p-2.5 text-xs font-bold"
                 :class="prefs.volumeVisible ? 'border-brand bg-brand/5 text-brand' : 'text-muted'"
               >
-                <span>نمایش حجم معاملات</span>
-                <span class="tnum font-black">{{ prefs.volumeVisible ? 'فعال' : 'خاموش' }}</span>
+                <span>حجم معاملات</span>
+                <span>{{ prefs.volumeVisible ? 'فعال' : 'خاموش' }}</span>
               </button>
-
               <button
                 @click="onToggleToolbar('grid')"
-                class="flex items-center justify-between rounded-xl border border-line p-3 text-xs font-bold transition"
+                class="flex items-center justify-between rounded-xl border border-line p-2.5 text-xs font-bold"
                 :class="prefs.gridVisible ? 'border-brand bg-brand/5 text-brand' : 'text-muted'"
               >
-                <span>خطوط شبکه (Grid)</span>
-                <span class="tnum font-black">{{ prefs.gridVisible ? 'فعال' : 'خاموش' }}</span>
+                <span>شبکه (Grid)</span>
+                <span>{{ prefs.gridVisible ? 'فعال' : 'خاموش' }}</span>
               </button>
-
               <button
                 @click="onToggleToolbar('magnet')"
-                class="flex items-center justify-between rounded-xl border border-line p-3 text-xs font-bold transition"
+                class="flex items-center justify-between rounded-xl border border-line p-2.5 text-xs font-bold"
                 :class="prefs.crosshairMagnet ? 'border-brand bg-brand/5 text-brand' : 'text-muted'"
               >
-                <span>آهنربا (Crosshair Magnet)</span>
-                <span class="tnum font-black">{{ prefs.crosshairMagnet ? 'فعال' : 'خاموش' }}</span>
+                <span>آهنربا (Magnet)</span>
+                <span>{{ prefs.crosshairMagnet ? 'فعال' : 'خاموش' }}</span>
               </button>
-
               <button
                 @click="auto = !auto"
-                class="flex items-center justify-between rounded-xl border border-line p-3 text-xs font-bold transition"
+                class="flex items-center justify-between rounded-xl border border-line p-2.5 text-xs font-bold"
                 :class="auto ? 'border-brand bg-brand/5 text-brand' : 'text-muted'"
               >
-                <span>به‌روزرسانی خودکار (۹۰ث)</span>
-                <span class="tnum font-black">{{ auto ? 'فعال' : 'خاموش' }}</span>
-              </button>
-            </div>
-
-            <div class="pt-2 border-t border-line flex gap-2">
-              <button
-                @click="resetView(); activeMobileSheet = null"
-                class="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-line py-2.5 text-xs font-bold text-ink hover:bg-secondary"
-              >
-                <ChartIcon name="fit" :size="18" />
-                <span>تنظیم مقیاس نما</span>
-              </button>
-              <button
-                @click="shot(); activeMobileSheet = null"
-                class="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-brand-solid py-2.5 text-xs font-bold text-white hover:bg-brand-strong"
-              >
-                <ChartIcon name="camera" :size="18" />
-                <span>ذخیره تصویر</span>
+                <span>به‌روزرسانی خودکار</span>
+                <span>{{ auto ? 'فعال' : 'خاموش' }}</span>
               </button>
             </div>
           </div>
@@ -618,7 +551,6 @@
     >
       <div class="fixed inset-0 bg-black/60 backdrop-blur-xs" @click="searchModalOpen = false" />
       <div class="relative w-full max-w-lg overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
-        <!-- Search Input Bar -->
         <div class="flex items-center gap-2 border-b border-line p-3 bg-secondary/30">
           <ChartIcon name="search" :size="20" class="text-muted shrink-0" />
           <input
@@ -638,7 +570,6 @@
           <kbd class="hidden sm:inline-block rounded bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-muted border border-line">ESC</kbd>
         </div>
 
-        <!-- Quick Favorites / Popular symbols chips -->
         <div v-if="!searchQuery && watchRows.length" class="p-2 border-b border-line bg-secondary/15 flex items-center gap-1.5 overflow-x-auto text-xs">
           <span class="text-[11px] text-muted shrink-0">دیده‌بان:</span>
           <button
@@ -651,7 +582,6 @@
           </button>
         </div>
 
-        <!-- Search Results List -->
         <div class="max-h-80 overflow-y-auto p-2">
           <ul v-if="filteredSymbols.length" class="space-y-1">
             <li v-for="s in filteredSymbols" :key="s.l18">
@@ -695,11 +625,11 @@ import { DrawingHistory, loadDrawings, loadIndicatorState, loadPrefs, saveIndica
 import type { CandleSet, ChartKind, DrawingObject, IndicatorInstance, WorkspaceCandle } from '@/chart/types.ts'
 import { fetchSymbolDetail, hasApiKey } from '@/services/api'
 import type { TsetmcSymbolDetail } from '@/types/market'
-import { changeClass, formatFaNumber, formatFaPercent, toFaDigits, formatCompactFa, gregorianToJalali } from '@/utils/format'
+import { changeClass, formatFaNumber, formatFaPercent, toFaDigits, formatCompactFa } from '@/utils/format'
+import { mockCandles } from '@/data/mock.ts'
 import ProChart from '@/components/chart/ProChart.vue'
 import ChartIcon from '@/components/chart/ChartIcon.vue'
 import DrawingLayer from '@/components/chart/DrawingLayer.vue'
-import ChartToolbar from '@/components/chart/ChartToolbar.vue'
 import DrawingToolbar from '@/components/chart/DrawingToolbar.vue'
 import IndicatorPanel from '@/components/chart/IndicatorPanel.vue'
 import ChangeBadge from '@/components/ChangeBadge.vue'
@@ -743,7 +673,7 @@ function selectFirstSearchResult(): void {
   }
 }
 
-// mobile bottom sheet state
+// mobile sheet state
 type MobileSheetType = 'drawings' | 'indicators' | 'watch' | 'settings' | null
 const activeMobileSheet = ref<MobileSheetType>(null)
 
@@ -751,16 +681,44 @@ function openMobileSheet(type: MobileSheetType): void {
   activeMobileSheet.value = activeMobileSheet.value === type ? null : type
 }
 
+function openAppSidebar(): void {
+  window.dispatchEvent(new CustomEvent('open-app-sidebar'))
+}
+
+function openIndicators(): void {
+  if (window.innerWidth < 1280) {
+    openMobileSheet('indicators')
+  } else {
+    sidePanel.value = sidePanel.value === 'indicators' ? null : 'indicators'
+  }
+}
+
+function toggleWatchlist(): void {
+  if (window.innerWidth < 1280) {
+    openMobileSheet('watch')
+  } else {
+    sidePanel.value = sidePanel.value === 'watch' ? null : 'watch'
+  }
+}
+
+function openSettings(): void {
+  if (window.innerWidth < 1280) {
+    openMobileSheet('settings')
+  } else {
+    onToggleToolbar('volume')
+  }
+}
+
 const sheetTitle = computed(() => {
   switch (activeMobileSheet.value) {
     case 'drawings':
-      return 'ابزارهای ترسیم و تحلیل'
+      return 'ابزارهای ترسیم'
     case 'indicators':
-      return 'مدیریت و افزودن اندیکاتورها'
+      return 'اندیکاتورها (fx)'
     case 'watch':
       return 'نمادهای دیده‌بان'
     case 'settings':
-      return 'تنظیمات نمایش نمودار'
+      return 'تنظیمات نمودار'
     default:
       return ''
   }
@@ -790,12 +748,14 @@ const sidePanel = ref<'indicators' | 'watch' | null>(null)
 const auto = ref(false)
 const frame = ref(0)
 
+// live clock
+const tehranClock = ref(toFaDigits(new Date().toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran' })))
+let clockInterval = 0
+
 // data state
 const candles = ref<WorkspaceCandle[]>([])
 const datasetSource = ref('')
-const updatedFa = ref('')
 const loading = ref(false)
-const loadError = ref<string | null>(null)
 const isMockNow = ref(false)
 let reqToken = 0
 let autoTimer = 0
@@ -888,59 +848,67 @@ function asciiTodayJalali(): string {
   return `${j.jy}-${String(j.jm).padStart(2, '0')}-${String(j.jd).padStart(2, '0')}`
 }
 
-function formatCandleTime(t: WorkspaceCandle['time']): string {
-  if (typeof t === 'number') {
-    return new Date(t * 1000).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })
-  }
-  return gregorianToJalali(String(t))
-}
+const headerRow = computed(() => market.symbols.find((s) => s.l18 === symbolParam.value))
+const headerCompany = computed(() => detail.value?.l30 ?? headerRow.value?.l30 ?? '')
+const headerMarket = computed(() => detail.value?.m ?? (headerRow.value?.market === 'etf' ? 'صندوق' : 'بورس'))
+const headerPrice = computed(() => detail.value?.pc ?? headerRow.value?.pc ?? legend.value?.close ?? null)
 
 async function reload(force = false): Promise<void> {
   void force
   const sym = symbolParam.value
   if (!sym) return
-  if (!hasApiKey()) {
-    loadError.value = 'کلید API تنظیم نشده است؛ تحلیل زنده در دسترس نیست. VITE_BRSAPI_KEY را در فایل .env قرار دهید.'
-    candles.value = []
-    isMockNow.value = true
-    return
-  }
+
   const my = ++reqToken
   loading.value = true
-  loadError.value = null
   try {
     await market.load()
+    if (!hasApiKey()) {
+      applyMockFallback()
+      return
+    }
     const [ds, det] = await Promise.all([
       fetchDataset(sym, prefs.set, detail.value?.date_update ?? asciiTodayJalali()),
       fetchSymbolDetail({ l18: sym }).catch(() => null),
     ])
     if (my !== reqToken) return
     detail.value = det
-    candles.value = ds.candles
-    datasetSource.value =
-      ds.source === 'candlestick-intraday'
-        ? 'کندل‌های ۲دقیقه‌ای امروز (زنده)'
-        : ds.source.includes('unadjusted')
-          ? 'کندل روزانه تعدیل‌نشده (TSETMC)'
-          : 'کندل روزانه تعدیل‌شده (TSETMC)'
-    updatedFa.value = `به‌روزرسانی: ${toFaDigits(
-      new Date(ds.fetchedAt).toLocaleTimeString('fa-IR', {
-        timeZone: 'Asia/Tehran',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-    )}`
-    isMockNow.value = false
-    if (!ds.candles.length) loadError.value = null
-  } catch (e) {
+    if (ds.candles.length) {
+      candles.value = ds.candles
+      datasetSource.value =
+        ds.source === 'candlestick-intraday'
+          ? 'کندل‌های ۲دقیقه‌ای امروز (زنده)'
+          : ds.source.includes('unadjusted')
+            ? 'کندل روزانه تعدیل‌نشده (TSETMC)'
+            : 'کندل روزانه تعدیل‌شده (TSETMC)'
+      isMockNow.value = false
+    } else {
+      applyMockFallback()
+    }
+  } catch {
     if (my !== reqToken) return
-    loadError.value = e instanceof Error ? e.message : 'خطای نامشخص'
-    candles.value = []
+    // Always fallback to mock on API errors or quota limits so chart is NEVER blank!
+    applyMockFallback()
   } finally {
-    if (my !== reqToken) return
-    loading.value = false
+    if (my === reqToken) {
+      loading.value = false
+      nextTick(() => pro.value?.fitContent())
+    }
   }
+}
+
+function applyMockFallback(): void {
+  const base = headerPrice.value ?? 18500
+  const points = mockCandles(base, 365)
+  candles.value = points.map((p) => ({
+    time: p.time,
+    open: p.open,
+    high: p.high,
+    low: p.low,
+    close: p.close,
+    volume: p.volume,
+  }))
+  datasetSource.value = 'کندل‌های روزانه شبیه‌سازی‌شده (پشتیبان)'
+  isMockNow.value = true
 }
 
 // derived series
@@ -1033,19 +1001,7 @@ const legendChangePct = computed(() => {
   return base ? ((legendChange.value as number) / base) * 100 : 0
 })
 
-const headerRow = computed(() => market.symbols.find((s) => s.l18 === symbolParam.value))
-const headerCompany = computed(() => detail.value?.l30 ?? headerRow.value?.l30 ?? '')
-const headerMarket = computed(() => detail.value?.m ?? (headerRow.value?.market === 'etf' ? 'صندوق' : 'بورس'))
-const headerPrice = computed(() => detail.value?.pc ?? headerRow.value?.pc ?? legend.value?.close ?? null)
-
 const watchRows = computed(() => watch.items.map((l18) => market.symbols.find((s) => s.l18 === l18)).filter((s) => s !== undefined))
-
-const aggNote = computed(() => {
-  if (prefs.set === 'intraday') return 'کندل‌های ۲دقیقه‌ای امروز'
-  if (agg.value === 'weekly') return 'تجمیع هفتگی'
-  if (agg.value === 'monthly') return 'تجمیع ماهانه'
-  return ''
-})
 
 // actions
 function setKind(k: ChartKind): void {
@@ -1057,23 +1013,19 @@ function setSet(s: CandleSet): void {
   savePrefs({ ...prefs })
   void reload()
 }
-function setAgg(a: Aggregate): void {
+function setSetAndAgg(s: CandleSet, a: Aggregate): void {
+  prefs.set = s
   agg.value = a
+  savePrefs({ ...prefs })
+  void reload()
 }
 function setRange(days: number): void {
   prefs.range = days
   savePrefs({ ...prefs })
 }
 
-function onToggleToolbar(w: 'indicators' | 'volume' | 'magnet' | 'grid'): void {
-  if (w === 'indicators') {
-    // on mobile, open mobile bottom sheet; on desktop toggle sidePanel
-    if (window.innerWidth < 1280) {
-      openMobileSheet('indicators')
-    } else {
-      sidePanel.value = sidePanel.value === 'indicators' ? null : 'indicators'
-    }
-  } else if (w === 'volume') {
+function onToggleToolbar(w: 'volume' | 'magnet' | 'grid'): void {
+  if (w === 'volume') {
     prefs.volumeVisible = !prefs.volumeVisible
     savePrefs({ ...prefs })
   } else if (w === 'magnet') {
@@ -1096,17 +1048,16 @@ const pro = ref<{
   screenshot: () => string | null
   setMagnet: (b: boolean) => void
   setGrid: (b: boolean) => void
+  timeToX: (t: WorkspaceCandle['time']) => number | null
+  xToTime: (x: number) => WorkspaceCandle['time'] | null
+  priceToY: (p: number) => number | null
+  yToPrice: (y: number) => number | null
+  plotSize: () => { w: number; h: number }
 } | null>(null)
 
 const proApi = computed(() => {
-  const p = pro.value as unknown as {
-    timeToX: (t: WorkspaceCandle['time']) => number | null
-    xToTime: (x: number) => WorkspaceCandle['time'] | null
-    priceToY: (p: number) => number | null
-    yToPrice: (y: number) => number | null
-    plotSize: () => { w: number; h: number }
-  } | null
-  return p && candles.value.length ? p : null
+  const p = pro.value
+  return p && (candles.value.length > 0 || displayCandles.value.length > 0) ? p : null
 })
 
 function shot(): void {
@@ -1289,8 +1240,25 @@ vueWatch(symbolParam, () => {
   detail.value = null
   initDrawings()
   void reload()
-  pro.value?.fitContent()
 })
+
+const chartKinds: Array<{ key: ChartKind; label: string; icon: string }> = [
+  { key: 'candles', label: 'کندل‌استیک', icon: 'candle' },
+  { key: 'bars', label: 'میله‌ای', icon: 'bars' },
+  { key: 'line', label: 'خطی', icon: 'line' },
+  { key: 'area', label: 'ناحیه‌ای', icon: 'area' },
+  { key: 'baseline', label: 'خط مبنا', icon: 'baseline' },
+]
+
+const rangePresets = [
+  { days: 1, label: '۱روز' },
+  { days: 7, label: '۷روز' },
+  { days: 30, label: '۱ماه' },
+  { days: 90, label: '۳ماه' },
+  { days: 180, label: '۶ماه' },
+  { days: 365, label: '۱سال' },
+  { days: 0, label: 'همه' },
+]
 
 onMounted(() => {
   restoreIndicators()
@@ -1299,6 +1267,9 @@ onMounted(() => {
   window.addEventListener('keydown', onKey)
   void reload()
   restartAuto()
+  clockInterval = window.setInterval(() => {
+    tehranClock.value = toFaDigits(new Date().toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran' }))
+  }, 1000)
 })
 
 onBeforeUnmount(() => {
@@ -1306,34 +1277,28 @@ onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', onFsChange)
   window.removeEventListener('keydown', onKey)
   window.clearInterval(autoTimer)
+  window.clearInterval(clockInterval)
   window.clearTimeout(textTimer)
 })
 </script>
 
 <style scoped>
-.analysis-root {
-  min-height: 60dvh;
+.tv-workspace {
+  height: 100dvh;
+  width: 100%;
 }
 
-.fs-fallback {
+.fs-mode {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: var(--page);
-  padding: 0.5rem;
   height: 100dvh !important;
-  overflow-y: auto;
-}
-
-.fs-fallback .analysis-chart {
-  height: calc(100dvh - 12rem) !important;
-  max-height: none;
-  min-height: 400px;
+  width: 100vw !important;
 }
 
 .loader-ring {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 9999px;
   border: 3px solid var(--line);
   border-top-color: var(--brand);
