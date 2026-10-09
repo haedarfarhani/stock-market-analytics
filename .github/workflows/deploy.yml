@@ -36,6 +36,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH }}
+      # Live data on the public site. WARNING: Vite inlines this into the
+      # client JS bundle, so anyone can read it via DevTools. Only use a key
+      # whose quota you can afford to expose; for real protection put a
+      # backend proxy in front and keep the key server-side instead.
+      VITE_BRSAPI_KEY: ${{ secrets.VITE_BRSAPI_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

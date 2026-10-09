@@ -1,5 +1,7 @@
 # تحلیل بازار سرمایه ایران 🇮🇷
 
+🌐 **نسخه زنده:** https://haedarfarhani.github.io/stock-market-analytics/
+
 داشبورد فارسی و راست‌چین برای بورس تهران (TSETMC)، فرابورس، بورس کالا، صندوق‌ها، آپشن، کدال، طلا/ارز/رمزارز — با **Vue 3 + TypeScript + Vite + Tailwind CSS v4 + Pinia + Vue Router + lightweight-charts**.
 
 ## شروع سریع
