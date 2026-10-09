@@ -15,10 +15,12 @@ import {
   type ISeriesApi,
   type LineData,
   type MouseEventParams,
+  type TickMarkType,
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { ChartKind, IndicatorLine, WorkspaceCandle } from '@/chart/types.ts'
+import { formatTimeAxisTick } from '@/utils/format.ts'
 
 export interface LegendBar {
   time: WorkspaceCandle['time']
@@ -311,7 +313,14 @@ function build(): void {
       horzLine: { color: rgba(t.brand, 0.6), labelBackgroundColor: t.brand },
     },
     rightPriceScale: { borderColor: rgba(t.line, 0.9) },
-    timeScale: { borderColor: rgba(t.line, 0.9), timeVisible: true, secondsVisible: false },
+    timeScale: {
+      borderColor: rgba(t.line, 0.9),
+      timeVisible: true,
+      secondsVisible: false,
+      // Jalali (Shamsi) axis labels with Persian digits instead of Gregorian.
+      tickMarkFormatter: (time: Time, tickMarkType: TickMarkType) => formatTimeAxisTick(time, tickMarkType),
+    },
+    localization: { locale: 'fa-IR' },
     autoSize: false,
     width: el.value.clientWidth,
     height: el.value.clientHeight,

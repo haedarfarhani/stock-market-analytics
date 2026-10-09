@@ -43,6 +43,17 @@ export function saveDrawings(symbol: string, drawings: DrawingObject[]): void {
   safeWrite(DRAW_KEY(symbol), { version: 1, drawings } satisfies DrawingStore)
 }
 
+/**
+ * Drawings cross the Vue reactivity boundary (emitted from reactive draft
+ * state), and `structuredClone` throws DataCloneError on Vue reactive
+ * proxies. Drawings are JSON-serializable by design (they persist to
+ * localStorage as JSON), so snapshots use a JSON deep clone which also
+ * guarantees only serializable data is ever stored.
+ */
+function cloneDrawings(list: DrawingObject[]): DrawingObject[] {
+  return JSON.parse(JSON.stringify(list)) as DrawingObject[]
+}
+
 /** Undo/redo over whole-list snapshots (simple, robust for ≤hundreds of drawings). */
 export class DrawingHistory {
   private undoStack: DrawingObject[][] = []
@@ -51,12 +62,12 @@ export class DrawingHistory {
 
   constructor(symbol: string, initial: DrawingObject[]) {
     this.symbol = symbol
-    this.undoStack = [structuredClone(initial)]
+    this.undoStack = [cloneDrawings(initial)]
   }
 
   reset(symbol: string, initial: DrawingObject[]): void {
     this.symbol = symbol
-    this.undoStack = [structuredClone(initial)]
+    this.undoStack = [cloneDrawings(initial)]
     this.redoStack = []
   }
 
@@ -65,7 +76,7 @@ export class DrawingHistory {
   }
 
   commit(next: DrawingObject[]): DrawingObject[] {
-    const snap = structuredClone(next)
+    const snap = cloneDrawings(next)
     this.undoStack.push(snap)
     if (this.undoStack.length > 100) this.undoStack.shift()
     this.redoStack = []
@@ -79,7 +90,7 @@ export class DrawingHistory {
     this.redoStack.push(cur)
     const prev = this.current
     saveDrawings(this.symbol, prev)
-    return structuredClone(prev)
+    return cloneDrawings(prev)
   }
 
   redo(): DrawingObject[] | null {
@@ -87,7 +98,7 @@ export class DrawingHistory {
     if (!next) return null
     this.undoStack.push(next)
     saveDrawings(this.symbol, next)
-    return structuredClone(next)
+    return cloneDrawings(next)
   }
 
   get canUndo(): boolean {

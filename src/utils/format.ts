@@ -110,6 +110,78 @@ export function jalaliToGregorianIso(jalali: string): string {
   return `${g.gy}-${mm}-${dd}`
 }
 
+/* ---------- Jalali time-axis labels (lightweight-charts tickMarkFormatter) ---------- */
+
+/** Granularity of a time-axis tick, mirroring lightweight-charts TickMarkType. */
+export type AxisTickKind = 'year' | 'month' | 'day' | 'time' | 'timeWithSeconds'
+
+let axisDtf: Intl.DateTimeFormat | null = null
+
+/** Tehran-wall-clock parts of an instant, in the Jalali calendar (fa-IR). */
+function tehranJalaliParts(ms: number): Record<string, string> {
+  if (!axisDtf) {
+    axisDtf = new Intl.DateTimeFormat('fa-IR', {
+      timeZone: 'Asia/Tehran',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+  }
+  const out: Record<string, string> = {}
+  for (const p of axisDtf.formatToParts(new Date(ms))) {
+    if (p.type !== 'literal') out[p.type] = p.value
+  }
+  return out
+}
+
+/**
+ * Format a chart time ("YYYY-MM-DD" daily string, BusinessDay object, or
+ * UTCTimestamp seconds for intraday) as a short Jalali axis label.
+ * `tickMarkType` is the lightweight-charts TickMarkType number
+ * (0=Year, 1=Month, 2=DayOfMonth, 3=Time, 4=TimeWithSeconds).
+ * Returns null on invalid input so the chart falls back to its default label.
+ */
+export function formatTimeAxisTick(time: unknown, tickMarkType: number): string | null {
+  try {
+    let ms: number | null = null
+    if (typeof time === 'number') {
+      if (!Number.isFinite(time)) return null
+      ms = time > 1e11 ? time : time * 1000 // tolerate ms input; chart uses seconds
+    } else if (typeof time === 'string') {
+      const m = time.match(/(\d{4})-(\d{2})-(\d{2})/)
+      if (!m) return null
+      // UTC midnight is 03:30 in Tehran: same calendar day, no TZ shift.
+      ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    } else if (time !== null && typeof time === 'object') {
+      const b = time as { year?: unknown; month?: unknown; day?: unknown }
+      if (typeof b.year !== 'number' || typeof b.month !== 'number' || typeof b.day !== 'number') return null
+      ms = Date.UTC(b.year, b.month - 1, b.day)
+    } else {
+      return null
+    }
+    const p = tehranJalaliParts(ms)
+    const fa = (s: string | undefined): string => toFaDigits(s ?? '')
+    switch (tickMarkType) {
+      case 0: // Year -> ۱۴۰۳
+        return fa(p.year)
+      case 1: // Month -> مهر ۰۳
+        return `${p.month ?? ''} ${fa((p.year ?? '').slice(-2))}`.trim() || null
+      case 2: // DayOfMonth -> ۱۲ مهر
+        return `${fa(p.day)} ${p.month ?? ''}`.trim() || null
+      case 3: // Time (intraday) -> ۱۴:۳۰ Tehran wall clock
+        return `${fa(p.hour)}:${fa(p.minute)}`
+      default: // TimeWithSeconds -> ۱۴:۳۰:۰۰
+        return `${fa(p.hour)}:${fa(p.minute)}:${fa(p.second)}`
+    }
+  } catch {
+    return null
+  }
+}
+
 export function isPositive(n: number | null | undefined): boolean {
   return (n ?? 0) > 0
 }

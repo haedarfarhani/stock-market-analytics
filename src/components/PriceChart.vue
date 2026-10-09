@@ -24,7 +24,8 @@
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { createChart, ColorType, type IChartApi, type ISeriesApi } from 'lightweight-charts'
+import { createChart, ColorType, type IChartApi, type ISeriesApi, type TickMarkType, type Time } from 'lightweight-charts'
+import { formatTimeAxisTick } from '@/utils/format.ts'
 import type { CandlePoint } from '@/types/market'
 
 const props = defineProps<{
@@ -84,7 +85,13 @@ function build() {
       horzLines: { color: hexToRgba(line, 0.55) },
     },
     rightPriceScale: { borderColor: hexToRgba(line, 0.9) },
-    timeScale: { borderColor: hexToRgba(line, 0.9), timeVisible: true },
+    timeScale: {
+      borderColor: hexToRgba(line, 0.9),
+      timeVisible: true,
+      // Jalali (Shamsi) axis labels with Persian digits instead of Gregorian.
+      tickMarkFormatter: (time: Time, tickMarkType: TickMarkType) => formatTimeAxisTick(time, tickMarkType),
+    },
+    localization: { locale: 'fa-IR' },
     autoSize: false,
     width: el.value.clientWidth,
     height: el.value.clientHeight,

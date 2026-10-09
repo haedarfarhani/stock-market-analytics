@@ -32,7 +32,7 @@ export const useMarketStore = defineStore('market', () => {
     return symbols.value.filter((s) => s.l18.includes(q) || (s.l30 ?? '').includes(q))
   })
 
-  async function load(force = false) {
+  async function load(force = false, opts: { indices?: boolean } = {}) {
     if (status.value === 'loading') return
     // throttle live refreshes to 45s
     if (!force && Date.now() - lastRefresh.value < 45_000 && symbols.value.length) return
@@ -40,7 +40,13 @@ export const useMarketStore = defineStore('market', () => {
     error.value = null
     try {
       if (!hasApiKey()) throw new Error('NO_API_KEY')
-      const [liveSymbols, liveIndex] = await Promise.all([fetchAllSymbols(1), fetchMarketIndices().catch(() => null)])
+      // The analysis workspace never shows indices — skip those 3 calls so a
+      // chart visit costs the minimum number of requests (quota is ~10/day).
+      const withIndices = opts.indices ?? true
+      const [liveSymbols, liveIndex] = await Promise.all([
+        fetchAllSymbols(1),
+        withIndices ? fetchMarketIndices().catch(() => null) : Promise.resolve(null),
+      ])
       symbols.value = liveSymbols
       if (liveIndex?.indices.length) {
         indices.value = liveIndex.indices

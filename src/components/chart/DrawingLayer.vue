@@ -1,7 +1,12 @@
 <template>
+  <!-- NOTE: z-[4] keeps this layer above the lightweight-charts panes
+       (their canvases use z-index 1-2, attribution link z-3) so pointer
+       gestures reach the SVG. Legend (z-10) and tool HUD (z-20) stay on top.
+       In cursor mode pointer-events:none restores normal chart interaction,
+       except on committed shapes (pointer-events:auto) for selection. -->
   <svg
     ref="svg"
-    class="absolute inset-0 h-full w-full select-none"
+    class="absolute inset-0 z-[4] h-full w-full select-none"
     :style="{
       cursor: svgCursor,
       touchAction: 'none',
@@ -12,14 +17,17 @@
     @pointerup="onPointerUp"
     @pointercancel="onPointerCancel"
   >
-    <!-- Committed drawings -->
+    <!-- Committed drawings.
+         No .stop modifier here: in drawing mode the event must bubble to the
+         svg root so a new drawing can start on top of existing shapes.
+         onSelectDown stops propagation only in cursor (select/move) mode. -->
     <g
       v-for="d in visible"
       :key="d.id"
       :opacity="d.opacity"
       class="drawing-item"
       style="pointer-events: auto"
-      @pointerdown.stop="onSelectDown(d, $event)"
+      @pointerdown="onSelectDown(d, $event)"
     >
       <DrawingShape
         :d="d"
@@ -27,6 +35,7 @@
         :svg-width="svgSize.w"
         :svg-height="svgSize.h"
         :selected="d.id === selectedId"
+        :interactive="tool === 'cursor'"
         :on-handle="(p) => onHandleDown(d, p)"
       />
     </g>
@@ -40,6 +49,7 @@
         :svg-height="svgSize.h"
         :selected="false"
         :preview="true"
+        :interactive="false"
         :on-handle="() => {}"
       />
       <!-- Active anchor pin on point 1 in 2-click mode -->
@@ -91,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, type PropType, type VNode } from 'vue'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, watch, type PropType, type VNode } from 'vue'
 import type { CandleTime, ChartHandle, DrawingObject, DrawingPoint, DrawingType, PlacedPoint } from '@/chart/types.ts'
 
 const props = defineProps<{
@@ -450,9 +460,29 @@ function cancelDraft(): void {
   draft.value = null
   draftPx.value = null
   pointerDownStart.value = null
+  hasDraggedFar.value = false
   brushPts.value = []
   brushPx.value = []
 }
+
+// A stale in-progress draft must never leak into another tool: switching
+// tools (or losing the chart bridge) resets the interaction state machine.
+watch(
+  () => props.tool,
+  () => {
+    moving.value = null
+    cancelDraft()
+  },
+)
+watch(
+  () => props.api,
+  (api) => {
+    if (!api) {
+      moving.value = null
+      cancelDraft()
+    }
+  },
+)
 
 // Global Escape to cancel active draft
 function onKeyDown(ev: KeyboardEvent): void {
@@ -466,9 +496,13 @@ function onKeyDown(ev: KeyboardEvent): void {
 }
 
 function onSelectDown(d: DrawingObject, ev: PointerEvent): void {
+  // In drawing mode never swallow the gesture: let it bubble to the svg root
+  // so a new drawing can start even on top of existing shapes.
   if (props.tool !== 'cursor') return
   ev.stopPropagation()
-  if (d.locked) return
+  if (d.locked) {
+    return
+  }
   emit('select', d.id)
   if (!props.api) return
   const { x, y } = ptAt(ev)
@@ -582,6 +616,8 @@ const DrawingShape = defineComponent({
     svgHeight: { type: Number, default: 600 },
     selected: { type: Boolean, default: false },
     preview: { type: Boolean, default: false },
+    /** False while a drawing tool is armed: handles hide and gestures pass through to start a new drawing. */
+    interactive: { type: Boolean, default: true },
     onHandle: { type: Function as PropType<(p: { handle: string; ev: PointerEvent }) => void>, required: true },
   },
   setup(props) {
@@ -616,6 +652,9 @@ const DrawingShape = defineComponent({
         'stroke-width': 2.5,
         style: 'cursor: move; pointer-events: auto;',
         onPointerdown: (ev: PointerEvent) => {
+          // In drawing mode handles are hidden; if one is somehow hit, do not
+          // swallow the gesture so a new drawing can still start.
+          if (!props.interactive) return
           ev.stopPropagation()
           props.onHandle({ handle: hd, ev })
         },
@@ -643,7 +682,7 @@ const DrawingShape = defineComponent({
       const nodes: VNode[] = []
       if (!p1) return h('g', [])
 
-      const sel = props.selected && !props.preview
+      const sel = props.selected && !props.preview && props.interactive
       const maxX = props.svgWidth || 5000
       const maxY = props.svgHeight || 3000
 

@@ -14,8 +14,14 @@ import type { AssemblyMeeting, TsetmcSymbol, MarketIndex, TsetmcSymbolDetail, Bo
  * and callers fall back to mock data. See API_INTEGRATION.md.
  */
 
-const TTL_SYMBOLS = 60_000
-const TTL_DETAIL = 120_000
+/**
+ * Quota-aware TTLs (free tier is ~10 req/day — every reload must not re-hit
+ * the network). Revisits inside the TTL window cost zero requests; the
+ * persistent candle cache in chart/data.ts covers quota outages across reloads.
+ */
+const TTL_SYMBOLS = 15 * 60_000 // symbols list / indices / TSE options
+const TTL_DETAIL = 15 * 60_000 // symbol detail / NAV / shareholders
+const TTL_INTRADAY = 3 * 60_000 // today's 2-minute candles
 
 export type SymbolType = 1 | 2 | 3 | 4 | 5
 
@@ -370,7 +376,7 @@ export async function fetchHistory(id: string): Promise<unknown> {
   return cachedGet(`history:${id}`, '/Tsetmc/History.php', { id }, TTL_DETAIL)
 }
 
-const TTL_HISTORY = 30 * 60_000 // full multi-year history per symbol — cache long
+const TTL_HISTORY = 4 * 60 * 60_000 // daily candles / price history — cache long (new rows arrive once a day)
 
 const HISTORY_NUM_KEYS = [
   'tno', 'tvol', 'tval', 'pmin', 'pmax', 'py', 'pf',
@@ -450,7 +456,7 @@ export async function fetchIntradayCandles(l18: string): Promise<DailyCandle[]> 
   const sym = l18.trim()
   if (!sym) throw new Error('نام نماد (l18) اجباری است.')
   if (!hasApiKey()) throw new Error('NO_API_KEY')
-  const data = await cachedGet<unknown>(`candles:1:${sym}`, '/Tsetmc/Candlestick.php', { type: 1, l18: sym }, TTL_SYMBOLS, { persist: false })
+  const data = await cachedGet<unknown>(`candles:1:${sym}`, '/Tsetmc/Candlestick.php', { type: 1, l18: sym }, TTL_INTRADAY, { persist: false })
   return extractCandles(data, 1)
 }
 

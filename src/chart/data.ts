@@ -1,6 +1,6 @@
 import { fetchDailyCandles, fetchIntradayCandles } from '@/services/api/tsetmc.ts'
 import { jalaliToGregorianIso } from '@/utils/format.ts'
-import type { CandleSet, WorkspaceCandle } from './types.ts'
+import type { CandleSet, CandleTime, WorkspaceCandle } from './types.ts'
 import type { DailyCandle } from '@/types/market'
 
 /**
@@ -18,6 +18,121 @@ export interface Dataset {
   candles: WorkspaceCandle[]
   source: string
   fetchedAt: number
+  /** True when served from the persistent cache (API limited or failed). */
+  stale?: boolean
+}
+
+/* ---------- persistent candle cache (localStorage, compact, LRU-evicted) ----------
+ * Candle payloads stay memory-only in the HTTP layer (persist:false) to protect
+ * the ~5MB localStorage budget, so after a reload a quota error left charts
+ * with nothing but mock data. This layer persists the *normalized* candles in
+ * compact tuple form, so real data survives reloads and is served stale when
+ * the API is rate-limited (402/429) or unreachable. */
+
+const DS_PREFIX = 'isa-candles-v1:'
+const DS_VERSION = 1
+const MAX_ROWS = 3000
+
+type CompactCandle = [CandleTime, number, number, number, number, number?]
+
+const dsKey = (symbol: string, set: CandleSet): string => `${DS_PREFIX}${set}:${symbol}`
+
+function isCandleTime(v: unknown): v is CandleTime {
+  if (typeof v === 'string') return v.length > 0
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/** WorkspaceCandle[] -> compact tuples (drops invalid rows, caps length). */
+export function compactCandles(candles: WorkspaceCandle[]): CompactCandle[] {
+  const out: CompactCandle[] = []
+  for (const c of candles) {
+    if (!c || !isCandleTime(c.time)) continue
+    if (![c.open, c.high, c.low, c.close].every(Number.isFinite)) continue
+    const row: CompactCandle = [c.time, c.open, c.high, c.low, c.close]
+    if (c.volume !== undefined && Number.isFinite(c.volume)) row.push(c.volume)
+    out.push(row)
+    if (out.length >= MAX_ROWS) break
+  }
+  return out
+}
+
+/** Compact tuples -> WorkspaceCandle[] (validates untrusted storage input). */
+export function expandCandles(rows: unknown): WorkspaceCandle[] {
+  if (!Array.isArray(rows)) return []
+  const out: WorkspaceCandle[] = []
+  for (const r of rows.slice(0, MAX_ROWS)) {
+    if (!Array.isArray(r) || r.length < 5) continue
+    const [t, o, h, l, c, v] = r as unknown[]
+    if (!isCandleTime(t)) continue
+    if (![o, h, l, c].every((x) => typeof x === 'number' && Number.isFinite(x))) continue
+    if (v !== undefined && !(typeof v === 'number' && Number.isFinite(v))) continue
+    out.push({ time: t, open: o as number, high: h as number, low: l as number, close: c as number, volume: v as number | undefined })
+  }
+  return out
+}
+
+function evictOldestDataset(exceptKey: string): void {
+  try {
+    let oldestKey: string | null = null
+    let oldestTs = Infinity
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k?.startsWith(DS_PREFIX) || k === exceptKey) continue
+      try {
+        const e = JSON.parse(localStorage.getItem(k) ?? '') as { fetchedAt?: unknown }
+        const ts = typeof e.fetchedAt === 'number' ? e.fetchedAt : 0
+        if (ts < oldestTs) {
+          oldestTs = ts
+          oldestKey = k
+        }
+      } catch {
+        oldestKey = k
+        break
+      }
+    }
+    if (oldestKey) localStorage.removeItem(oldestKey)
+  } catch {
+    /* storage unavailable — memory path still works */
+  }
+}
+
+/** Persist a successfully fetched dataset (quota-safe: evicts oldest on overflow). */
+export function saveDatasetCache(symbol: string, set: CandleSet, ds: Dataset): void {
+  const key = dsKey(symbol, set)
+  let payload = ''
+  try {
+    payload = JSON.stringify({ version: DS_VERSION, candles: compactCandles(ds.candles), source: ds.source, fetchedAt: ds.fetchedAt })
+  } catch {
+    return
+  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      localStorage.setItem(key, payload)
+      return
+    } catch {
+      evictOldestDataset(key)
+    }
+  }
+}
+
+/** Load the last-known dataset for a symbol (any age — caller labels it stale). */
+export function loadDatasetCache(symbol: string, set: CandleSet): Dataset | null {
+  try {
+    const raw = localStorage.getItem(dsKey(symbol, set))
+    if (!raw) return null
+    const s = JSON.parse(raw) as { version?: unknown; candles?: unknown; source?: unknown; fetchedAt?: unknown }
+    if (!s || s.version !== DS_VERSION) return null
+    const candles = expandCandles(s.candles)
+    if (!candles.length) return null
+    return {
+      candles,
+      source: typeof s.source === 'string' ? s.source : 'cached',
+      fetchedAt: typeof s.fetchedAt === 'number' ? s.fetchedAt : Date.now(),
+      stale: true,
+    }
+  } catch {
+    return null
+  }
 }
 
 const inflight = new Map<string, Promise<Dataset>>()
@@ -107,12 +222,23 @@ export function fetchDataset(symbol: string, set: CandleSet, sessionDate: string
   if (running) return running
   const job = (async (): Promise<Dataset> => {
     try {
+      let ds: Dataset
       if (set === 'intraday') {
         const rows = await fetchIntradayCandles(symbol)
-        return { candles: toWorkspaceIntraday(rows, sessionDate), source: 'candlestick-intraday', fetchedAt: Date.now() }
+        ds = { candles: toWorkspaceIntraday(rows, sessionDate), source: 'candlestick-intraday', fetchedAt: Date.now() }
+      } else {
+        const rows = await fetchDailyCandles(symbol, set === 'adjusted' ? 'adjusted' : 'unadjusted')
+        ds = { candles: toWorkspaceDaily(rows), source: `candlestick-${set}`, fetchedAt: Date.now() }
       }
-      const rows = await fetchDailyCandles(symbol, set === 'adjusted' ? 'adjusted' : 'unadjusted')
-      return { candles: toWorkspaceDaily(rows), source: `candlestick-${set}`, fetchedAt: Date.now() }
+      // Real data won: persist it so quota errors / reloads can serve it stale.
+      if (ds.candles.length) saveDatasetCache(symbol, set, ds)
+      return ds
+    } catch {
+      // Limited or unreachable: serve the last-known real dataset, if any.
+      // Only when nothing was ever cached do callers fall back to mock data.
+      const cached = loadDatasetCache(symbol, set)
+      if (cached) return cached
+      return { candles: [], source: 'unavailable', fetchedAt: Date.now() }
     } finally {
       inflight.delete(key)
     }

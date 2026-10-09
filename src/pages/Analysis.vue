@@ -309,6 +309,25 @@
             @commit="onCommit"
             @select="selectedId = $event"
           />
+
+          <!-- Quota notice (AppLayout hides its banner on this page) -->
+          <div
+            v-if="quota.limited"
+            class="absolute bottom-2 left-1/2 z-20 flex max-w-[95%] -translate-x-1/2 items-center gap-2 rounded-xl border border-rose-500/40 bg-surface/95 px-3 py-1.5 text-[11px] shadow-lg backdrop-blur-md"
+            role="alert"
+          >
+            <span aria-hidden="true">⛔</span>
+            <p class="min-w-0 flex-1 text-rose-800 dark:text-rose-200">
+              <strong>محدودیت API:</strong> {{ quota.message }}
+            </p>
+            <button
+              @click="quota.dismiss(); reload(true)"
+              class="shrink-0 rounded-lg bg-brand-solid px-2.5 py-1 text-[11px] font-bold text-white hover:bg-brand-strong"
+            >
+              تلاش مجدد
+            </button>
+            <button @click="quota.dismiss()" class="shrink-0 rounded-lg px-1.5 py-1 font-bold" aria-label="بستن">✕</button>
+          </div>
         </div>
 
         <!-- Bottom TradingView Bar (Ranges & Timezone & Scale) -->
@@ -618,6 +637,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch as
 import { useRoute, useRouter } from 'vue-router'
 import { toJalaali } from 'jalaali-js'
 import { useMarketStore } from '@/stores/market'
+import { useQuotaStore } from '@/stores/quota'
 import { useWatchlistStore } from '@/stores/watchlist'
 import { fetchDataset, resample, type Aggregate } from '@/chart/data.ts'
 import { computeInstance, getIndicatorDef, makeInstance } from '@/chart/indicators.ts'
@@ -625,7 +645,7 @@ import { DrawingHistory, loadDrawings, loadIndicatorState, loadPrefs, saveIndica
 import type { CandleSet, ChartKind, DrawingObject, IndicatorInstance, WorkspaceCandle } from '@/chart/types.ts'
 import { fetchSymbolDetail, hasApiKey } from '@/services/api'
 import type { TsetmcSymbolDetail } from '@/types/market'
-import { changeClass, formatFaNumber, formatFaPercent, toFaDigits, formatCompactFa } from '@/utils/format'
+import { changeClass, formatFaNumber, formatFaPercent, toFaDigits, formatCompactFa, tehranNow } from '@/utils/format'
 import { mockCandles } from '@/data/mock.ts'
 import ProChart from '@/components/chart/ProChart.vue'
 import ChartIcon from '@/components/chart/ChartIcon.vue'
@@ -639,6 +659,7 @@ void changeClass
 const route = useRoute()
 const router = useRouter()
 const market = useMarketStore()
+const quota = useQuotaStore()
 const watch = useWatchlistStore()
 
 const symbolParam = computed(() => decodeURIComponent(String(route.params.symbol ?? '')))
@@ -861,7 +882,7 @@ async function reload(force = false): Promise<void> {
   const my = ++reqToken
   loading.value = true
   try {
-    await market.load()
+    await market.load(false, { indices: false })
     if (!hasApiKey()) {
       applyMockFallback()
       return
@@ -874,12 +895,19 @@ async function reload(force = false): Promise<void> {
     detail.value = det
     if (ds.candles.length) {
       candles.value = ds.candles
-      datasetSource.value =
-        ds.source === 'candlestick-intraday'
-          ? 'کندل‌های ۲دقیقه‌ای امروز (زنده)'
-          : ds.source.includes('unadjusted')
-            ? 'کندل روزانه تعدیل‌نشده (TSETMC)'
-            : 'کندل روزانه تعدیل‌شده (TSETMC)'
+      if (ds.stale) {
+        // Real data from the persistent cache (API limited or unreachable).
+        // Never badge this as mock: it is the symbol's own last-known candles.
+        const f = tehranNow(new Date(ds.fetchedAt))
+        datasetSource.value = `داده ذخیره‌شده (${f.dateFa} ${f.timeFa})`
+      } else {
+        datasetSource.value =
+          ds.source === 'candlestick-intraday'
+            ? 'کندل‌های ۲دقیقه‌ای امروز (زنده)'
+            : ds.source.includes('unadjusted')
+              ? 'کندل روزانه تعدیل‌نشده (TSETMC)'
+              : 'کندل روزانه تعدیل‌شده (TSETMC)'
+      }
       isMockNow.value = false
     } else {
       applyMockFallback()
