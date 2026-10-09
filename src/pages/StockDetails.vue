@@ -1,7 +1,15 @@
 <template>
   <div class="space-y-4">
-    <RouterLink to="/stocks" class="text-xs font-bold text-brand">→ بازگشت به فهرست سهام</RouterLink>
-
+    <div class="flex flex-wrap items-center gap-2">
+      <RouterLink to="/stocks" class="text-xs font-bold text-brand">→ بازگشت به فهرست سهام</RouterLink>
+      <RouterLink
+        v-if="symbolParam"
+        :to="`/stocks/${encodeURIComponent(symbolParam)}/analysis`"
+        class="ms-auto rounded-xl bg-brand-solid px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-brand/25 hover:bg-brand-strong"
+      >
+        📐 تحلیل تکنیکال
+      </RouterLink>
+    </div>
     <div v-if="loading" class="space-y-2" role="status" aria-label="در حال بارگذاری">
       <div class="skeleton h-10 w-2/3 rounded-xl" />
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">

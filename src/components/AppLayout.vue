@@ -74,7 +74,19 @@
         </div>
       </header>
 
-      <main class="mx-auto max-w-7xl px-4 py-5">
+      <main class="mx-auto max-w-7xl px-2 py-3 sm:px-4 sm:py-5">
+        <div
+          v-if="quota.limited"
+          class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-xs leading-6 text-rose-800 dark:text-rose-200"
+          role="alert"
+        >
+          <span aria-hidden="true">⛔</span>
+          <p class="min-w-0 flex-1"><strong>محدودیت API:</strong> {{ quota.message }} <span v-if="quota.updatedAtFa" class="tnum">({{ quota.updatedAtFa }})</span></p>
+          <button @click="retryQuota" class="shrink-0 rounded-lg bg-brand-solid px-3 py-1 text-[11px] font-bold text-white hover:bg-brand-strong">
+            تلاش مجدد
+          </button>
+          <button @click="quota.dismiss()" class="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold" aria-label="بستن">✕</button>
+        </div>
         <div v-if="market.error" class="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs leading-6 text-amber-800 dark:text-amber-200" role="status">
           <span aria-hidden="true">⚠️</span>
           <p>{{ market.error }}</p>
@@ -82,7 +94,7 @@
         <slot />
       </main>
 
-      <footer class="mx-auto max-w-7xl px-4 pb-8 text-[11px] leading-6 text-muted">
+      <footer class="mx-auto max-w-7xl px-2 pb-4 text-[11px] leading-6 text-muted sm:px-4 sm:pb-8">
         <div class="rounded-2xl border border-line bg-surface px-4 py-3">
           داده‌ها از سرویس BrsApi (TSETMC / IME / CODAL) تامین می‌شود. در صورت نبود کلید API، داده نمایشی (mock) با برچسب مشخص نمایش داده می‌شود و نباید مبنای تصمیم معاملاتی قرار گیرد. جزئیات اتصال: <span class="font-mono" dir="ltr">API_INTEGRATION.md</span>
         </div>
@@ -95,11 +107,15 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMarketStore } from '@/stores/market'
+import { useMarketQuotesStore } from '@/stores/quotes'
+import { useQuotaStore } from '@/stores/quota'
 import { tehranNow } from '@/utils/format'
 import SearchInput from '@/components/SearchInput.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const market = useMarketStore()
+const quotes = useMarketQuotesStore()
+const quota = useQuotaStore()
 const route = useRoute()
 const sidebarOpen = ref(false)
 const clock = ref(tehranNow())
@@ -113,6 +129,12 @@ onMounted(() => {
     clock.value = tehranNow()
   }, 1000)
 })
+
+function retryQuota(): void {
+  quota.dismiss()
+  void market.load(true)
+  void quotes.load(true)
+}
 
 onBeforeUnmount(() => {
   if (clockTimer) window.clearInterval(clockTimer)

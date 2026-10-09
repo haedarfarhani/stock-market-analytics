@@ -21,8 +21,10 @@ npm run build          # خروجی production + تایپ‌چک
 src/
   components/  AppLayout, MarketCard, DataTable, PriceChart, ChangeBadge,
                MockBadge, SearchInput, ThemeToggle
-  pages/       Dashboard, Stocks, StockDetails, Indices, EtfFunds,
-               Options, History, Codal, Commodities, NotFound
+  pages/       Dashboard, Stocks, StockDetails, Analysis (کارگاه تکنیکال),
+               Indices, EtfFunds, Options, History, Codal, Commodities, NotFound
+  chart/       types, indicators (۱۳ اندیکاتور تست‌شده), data (OHLCV + تجمیع),
+               persistence (ترسیم‌ها/پrefs نسخه‌دار لوکال)
   stores/      market.ts (داده + کش + fallback نمایشی), theme.ts, watchlist.ts
   services/api/ client.ts (axios + کش + proxy), tsetmc.ts, extended.ts
   data/mock.ts داده نمایشی واقع‌نما (برچسب‌دار)

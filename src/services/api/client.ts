@@ -1,4 +1,5 @@
 import axios, { type AxiosInstance } from 'axios'
+import { useQuotaStore } from '@/stores/quota.ts'
 
 /**
  * Central HTTP client for BrsApi.
@@ -47,8 +48,24 @@ http.interceptors.response.use(
   (err) => {
     if (axios.isAxiosError(err)) {
       const status = err.response?.status
+      const serverMsg = (err.response?.data as { message_error?: unknown } | undefined)?.message_error
+      const detail = typeof serverMsg === 'string' && serverMsg ? ` (${serverMsg})` : ''
+      const quota = (msg: string): void => {
+        try {
+          useQuotaStore().markLimited(msg)
+        } catch {
+          /* store unavailable (tests) — ignore */
+        }
+      }
       if (status === 429) {
-        throw new Error('سقف درخواست API به پایان رسید؛ از کش نمایش داده می‌شود.')
+        const msg = 'سقف درخواست API به پایان رسید؛ از کش نمایش داده می‌شود.'
+        quota(msg)
+        throw new Error(msg)
+      }
+      if (status === 402) {
+        const msg = 'سقف مصرف روزانه API تمام شد؛ داده‌های نمایش‌داده‌شده از کش است.' + detail
+        quota(msg)
+        throw new Error(msg)
       }
       if (status === 401 || status === 403) {
         throw new Error('کلید API معتبر نیست. VITE_BRSAPI_KEY را بررسی کنید.')
