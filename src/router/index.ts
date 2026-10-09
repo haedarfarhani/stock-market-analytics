@@ -14,7 +14,10 @@ const routes: RouteRecordRaw[] = [
 ]
 
 export const router = createRouter({
-  history: createWebHistory(),
+  // BASE_URL comes from vite.config `base` ("/" locally,
+  // "/stock-market-analytics/" on GitHub Pages) so routes resolve
+  // under the deployment sub-path instead of the domain root.
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior() {
     return { top: 0 }
